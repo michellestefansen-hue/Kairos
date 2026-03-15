@@ -71,6 +71,17 @@ function MainApp() {
 export default function App() {
   const onboardingComplete = useKairosStore(s => s.onboardingComplete)
 
+  // Unregister any stale service workers that might conflict with OneSignal
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(reg => {
+          if (!reg.active?.scriptURL.includes('OneSignal')) reg.unregister()
+        })
+      })
+    }
+  }, [])
+
   // Init OneSignal (handles SW registration + push subscription)
   useEffect(() => {
     window.OneSignalDeferred = window.OneSignalDeferred || []
