@@ -1,10 +1,9 @@
 import { useCallback } from 'react'
 import useKairosStore from '../store/useKairosStore'
 
-// Build today's reminder schedule
-function buildSchedule(frequency, smartTiming, quietStart, quietEnd) {
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+// Build a reminder schedule for a given date
+function buildSchedule(frequency, smartTiming, quietStart, quietEnd, date = new Date()) {
+  const today = new Date(date.getFullYear(), date.getMonth(), date.getDate())
 
   // Waking hours in minutes from midnight
   const wakeMinutes = quietEnd * 60      // e.g. 07:00 = 420
@@ -19,17 +18,16 @@ function buildSchedule(frequency, smartTiming, quietStart, quietEnd) {
     for (let i = 0; i < frequency; i++) {
       const windowStart = wakeMinutes + i * windowSize
       const windowEnd = windowStart + windowSize
-      // Random time within window, minimum 90 min gap enforced below
       const minuteOfDay = windowStart + Math.random() * (windowEnd - windowStart)
       times.push(minuteOfDay)
     }
   } else {
     // Fixed blocks: morning, midday, afternoon, evening
     const blocks = [
-      [wakeMinutes, wakeMinutes + 180],        // wake → wake+3h
-      [wakeMinutes + 180, wakeMinutes + 360],  // +3h → +6h
-      [wakeMinutes + 360, wakeMinutes + 540],  // +6h → +9h
-      [sleepMinutes - 240, sleepMinutes - 60], // sleep-4h → sleep-1h
+      [wakeMinutes, wakeMinutes + 180],
+      [wakeMinutes + 180, wakeMinutes + 360],
+      [wakeMinutes + 360, wakeMinutes + 540],
+      [sleepMinutes - 240, sleepMinutes - 60],
     ]
     const selectedBlocks = blocks.slice(0, frequency)
     selectedBlocks.forEach(([start, end]) => {
@@ -64,33 +62,63 @@ function buildSchedule(frequency, smartTiming, quietStart, quietEnd) {
 export function useNotifications() {
   const {
     frequency, smartTiming, quietHoursStart, quietHoursEnd,
-    setNotificationsGranted, notificationsGranted
+    setNotificationsGranted, notificationsGranted,
+    lastScheduledDate, setLastScheduledDate
   } = useKairosStore()
 
   const requestPermission = useCallback(async () => {
-    if (!('Notification' in window)) return 'unsupported'
-    const result = await Notification.requestPermission()
-    if (result === 'granted') {
-      setNotificationsGranted(true)
-      scheduleToday()
+    if (!window.OneSignal) return 'unsupported'
+    try {
+      await window.OneSignal.Notifications.requestPermission()
+      const granted = window.OneSignal.Notifications.permission
+      if (granted) setNotificationsGranted(true)
+      return granted ? 'granted' : 'denied'
+    } catch {
+      return 'denied'
     }
-    return result
-  }, [])
+  }, [setNotificationsGranted])
 
-  const scheduleToday = useCallback(() => {
-    if (!('serviceWorker' in navigator)) return
-    navigator.serviceWorker.ready.then(reg => {
-      if (!reg.active) return
-      const schedule = buildSchedule(frequency, smartTiming, quietHoursStart, quietHoursEnd)
-      reg.active.postMessage({ type: 'SCHEDULE_REMINDERS', schedule })
-    })
-  }, [frequency, smartTiming, quietHoursStart, quietHoursEnd])
+  const scheduleToday = useCallback(async () => {
+    const today = new Date().toDateString()
+    // Reschedule if never done, or if the last batch was scheduled more than 6 days ago
+    const daysSinceScheduled = lastScheduledDate
+      ? (Date.now() - new Date(lastScheduledDate).getTime()) / (1000 * 60 * 60 * 24)
+      : Infinity
+    if (daysSinceScheduled < 6) return
+
+    if (!window.OneSignal) return
+
+    let playerId
+    try {
+      playerId = await window.OneSignal.getUserId()
+    } catch {
+      return
+    }
+    if (!playerId) return
+
+    // Build schedule for today + next 6 days
+    const schedule = []
+    for (let i = 0; i < 7; i++) {
+      const date = new Date()
+      date.setDate(date.getDate() + i)
+      schedule.push(...buildSchedule(frequency, smartTiming, quietHoursStart, quietHoursEnd, date))
+    }
+    if (!schedule.length) return
+
+    try {
+      await fetch('/api/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId, schedule })
+      })
+      setLastScheduledDate(today)
+    } catch (e) {
+      console.error('Failed to schedule notifications', e)
+    }
+  }, [frequency, smartTiming, quietHoursStart, quietHoursEnd, lastScheduledDate, setLastScheduledDate])
 
   const notifyMomentLogged = useCallback(() => {
-    if (!('serviceWorker' in navigator)) return
-    navigator.serviceWorker.ready.then(reg => {
-      if (reg.active) reg.active.postMessage({ type: 'LOG_MOMENT' })
-    })
+    // no-op: OneSignal delivers scheduled notifications server-side
   }, [])
 
   return { requestPermission, scheduleToday, notifyMomentLogged, notificationsGranted }

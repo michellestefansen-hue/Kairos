@@ -13,6 +13,7 @@ const useKairosStore = create(
       quietHoursStart: 22,
       quietHoursEnd: 7,
       notificationsGranted: false,
+      lastScheduledDate: null,
 
       setDirection: (direction) => set({ direction }),
       setKeywords: (keywords) => set({ keywords }),
@@ -20,6 +21,7 @@ const useKairosStore = create(
       setSmartTiming: (smartTiming) => set({ smartTiming }),
       setQuietHours: (start, end) => set({ quietHoursStart: start, quietHoursEnd: end }),
       setNotificationsGranted: (v) => set({ notificationsGranted: v }),
+      setLastScheduledDate: (d) => set({ lastScheduledDate: d }),
       completeOnboarding: () => set({ onboardingComplete: true }),
 
       // ── MOMENTS ────────────────────────────────────────────
@@ -90,6 +92,7 @@ const useKairosStore = create(
         frequency: 4,
         smartTiming: true,
         notificationsGranted: false,
+        lastScheduledDate: null,
         moments: [],
         weeklyAlignments: [],
         activeTab: 'moment',

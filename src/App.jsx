@@ -71,11 +71,16 @@ function MainApp() {
 export default function App() {
   const onboardingComplete = useKairosStore(s => s.onboardingComplete)
 
-  // Register service worker
+  // Init OneSignal (handles SW registration + push subscription)
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error)
-    }
+    window.OneSignalDeferred = window.OneSignalDeferred || []
+    window.OneSignalDeferred.push(async (OneSignal) => {
+      await OneSignal.init({
+        appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+        notifyButton: { enable: false },
+        allowLocalhostAsSecureOrigin: true
+      })
+    })
   }, [])
 
   return (
