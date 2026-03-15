@@ -4,6 +4,7 @@ import useKairosStore from '../../store/useKairosStore'
 import { Card, SectionLabel } from '../../components/ui'
 
 const ALIGNMENT_SCORES = { Yes: 100, Partly: 60, No: 20 }
+const HIGH_ENERGY_THRESHOLD = 7
 
 function EmptyState({ message }) {
   return (
@@ -13,13 +14,126 @@ function EmptyState({ message }) {
   )
 }
 
+function getMatchingKeywords(activity, keywords) {
+  if (!activity || !keywords?.length) return []
+  const actLower = activity.toLowerCase()
+  return keywords.filter(k => actLower.includes(k.toLowerCase()))
+}
+
+function ActivityRow({ item, isLast, dimmed = false }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '10px 0',
+      borderBottom: !isLast ? '1px solid rgba(255,255,255,.06)' : 'none',
+      fontSize: 14, color: dimmed ? 'var(--text-faint)' : 'var(--text-secondary)'
+    }}>
+      <span style={{ flex: 1, marginRight: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {item.activity}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div style={{ width: 80, height: 4, background: 'rgba(255,255,255,.08)', borderRadius: 4 }}>
+          <div style={{
+            height: '100%', borderRadius: 4,
+            width: `${(item.avg / 10) * 100}%`,
+            background: dimmed
+              ? 'rgba(139,92,246,.25)'
+              : 'linear-gradient(90deg, var(--accent), var(--accent-soft))'
+          }} />
+        </div>
+        <span style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 28, textAlign: 'right' }}>{item.avg}</span>
+      </div>
+    </div>
+  )
+}
+
+function generatePatternSentence(moments, keywords, activityData) {
+  if (!moments.length || !activityData.length) return null
+
+  // Keyword vs non-keyword energy difference
+  if (keywords.length > 0) {
+    const withKeyword = moments.filter(m => m.activity && getMatchingKeywords(m.activity, keywords).length > 0)
+    const withoutKeyword = moments.filter(m => m.activity && getMatchingKeywords(m.activity, keywords).length === 0)
+    if (withKeyword.length >= 2 && withoutKeyword.length >= 2) {
+      const avgWith = withKeyword.reduce((s, m) => s + m.energy, 0) / withKeyword.length
+      const avgWithout = withoutKeyword.reduce((s, m) => s + m.energy, 0) / withoutKeyword.length
+      const diff = Math.round(Math.abs(avgWith - avgWithout) * 10) / 10
+      if (diff >= 1) {
+        if (avgWith > avgWithout) {
+          return `Aktiviteter som matcher retningen din gir deg ${diff} poeng mer energi i snitt.`
+        } else {
+          return `Aktiviteter utenfor retningen din gir deg ${diff} poeng mer energi — verdt å reflektere over.`
+        }
+      }
+    }
+  }
+
+  // Top vs bottom activity comparison
+  if (activityData.length >= 2) {
+    const top = activityData[0]
+    const bottom = activityData[activityData.length - 1]
+    const diff = Math.round((top.avg - bottom.avg) * 10) / 10
+    if (diff >= 2) {
+      return `"${top.activity}" gir deg ${diff} poeng mer energi enn "${bottom.activity}".`
+    }
+  }
+
+  // Time of day pattern
+  const byPeriod = { morning: [], afternoon: [], evening: [] }
+  moments.forEach(m => {
+    const h = new Date(m.timestamp).getHours()
+    if (h >= 5 && h < 12) byPeriod.morning.push(m.energy)
+    else if (h >= 12 && h < 17) byPeriod.afternoon.push(m.energy)
+    else if (h >= 17 && h < 22) byPeriod.evening.push(m.energy)
+  })
+  const periodAvgs = Object.entries(byPeriod)
+    .filter(([, es]) => es.length >= 2)
+    .map(([period, es]) => ({ period, avg: es.reduce((a, b) => a + b, 0) / es.length }))
+    .sort((a, b) => b.avg - a.avg)
+  if (periodAvgs.length >= 2) {
+    const names = { morning: 'morgen', afternoon: 'ettermiddag', evening: 'kveld' }
+    return `Du er mest energisk om ${names[periodAvgs[0].period]} og minst om ${names[periodAvgs[periodAvgs.length - 1].period]}.`
+  }
+
+  return null
+}
+
 export default function InsightsScreen() {
   const moments = useKairosStore(s => s.moments)
+  const keywords = useKairosStore(s => s.keywords)
   const addWeeklyAlignment = useKairosStore(s => s.addWeeklyAlignment)
-  const weeklyAlignments = useKairosStore(s => s.weeklyAlignments)
   const [alignChoice, setAlignChoice] = useState(null)
 
   const hasData = moments.length >= 3
+
+  // Direction relevance: % of high-energy moments matching keywords
+  const directionStats = useMemo(() => {
+    if (!hasData || !keywords.length) return null
+    const highEnergy = moments.filter(m => m.energy >= HIGH_ENERGY_THRESHOLD)
+    if (!highEnergy.length) return null
+    const matching = highEnergy.filter(m => m.activity && getMatchingKeywords(m.activity, keywords).length > 0)
+    const score = Math.round((matching.length / highEnergy.length) * 100)
+    const keywordCounts = {}
+    matching.forEach(m => {
+      getMatchingKeywords(m.activity, keywords).forEach(k => {
+        keywordCounts[k] = (keywordCounts[k] || 0) + 1
+      })
+    })
+    const topKeywords = Object.entries(keywordCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([k]) => k)
+    return { score, topKeywords }
+  }, [moments, keywords, hasData])
+
+  // Gap indicator: % of all moments aligned with direction
+  const gapPct = useMemo(() => {
+    if (!hasData || !keywords.length) return null
+    const withActivity = moments.filter(m => m.activity?.trim())
+    if (!withActivity.length) return null
+    const aligned = withActivity.filter(m => getMatchingKeywords(m.activity, keywords).length > 0)
+    return Math.round((aligned.length / withActivity.length) * 100)
+  }, [moments, keywords, hasData])
 
   // Energy by hour
   const hourData = useMemo(() => {
@@ -43,7 +157,7 @@ export default function InsightsScreen() {
   const peakHour = hourData.length ? hourData.reduce((a, b) => a.avg > b.avg ? a : b) : null
   const lowestHour = hourData.length ? hourData.reduce((a, b) => a.avg < b.avg ? a : b) : null
 
-  // Energy by activity
+  // Energy by activity with keyword matching
   const activityData = useMemo(() => {
     if (!hasData) return []
     const byAct = {}
@@ -55,9 +169,37 @@ export default function InsightsScreen() {
       byAct[a].count++
     })
     return Object.entries(byAct)
-      .map(([activity, { sum, count }]) => ({ activity, avg: Math.round((sum / count) * 10) / 10 }))
+      .map(([activity, { sum, count }]) => ({
+        activity,
+        avg: Math.round((sum / count) * 10) / 10,
+        matchedKeywords: getMatchingKeywords(activity, keywords)
+      }))
       .sort((a, b) => b.avg - a.avg)
-  }, [moments])
+  }, [moments, keywords, hasData])
+
+  // Group activities by keyword
+  const activitiesByKeyword = useMemo(() => {
+    if (!keywords.length || !activityData.length) return null
+    const groups = {}
+    keywords.forEach(k => { groups[k] = [] })
+    const unmatched = []
+    activityData.forEach(item => {
+      if (item.matchedKeywords.length > 0) {
+        item.matchedKeywords.forEach(k => { if (groups[k]) groups[k].push(item) })
+      } else {
+        unmatched.push(item)
+      }
+    })
+    const result = Object.entries(groups)
+      .filter(([, acts]) => acts.length > 0)
+      .map(([keyword, activities]) => ({ keyword, activities }))
+    return { groups: result, unmatched }
+  }, [activityData, keywords])
+
+  const patternSentence = useMemo(() =>
+    generatePatternSentence(moments, keywords, activityData),
+    [moments, keywords, activityData]
+  )
 
   const top3 = activityData.slice(0, 3)
   const bottom3 = activityData.slice(-3).reverse()
@@ -67,11 +209,6 @@ export default function InsightsScreen() {
     addWeeklyAlignment(choice)
   }
 
-  // Last weekly alignment
-  const lastAlignment = weeklyAlignments.length
-    ? weeklyAlignments[weeklyAlignments.length - 1]
-    : null
-
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '0 0 24px' }}>
       {/* Header */}
@@ -79,6 +216,82 @@ export default function InsightsScreen() {
         <h1 style={{ fontSize: 26, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>Your energy patterns</h1>
         <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>Based on your recent check-ins.</p>
       </div>
+
+      {/* Not enough data gate */}
+      {!hasData && (
+        <div style={{ padding: '0 24px' }}>
+          <Card style={{ textAlign: 'center', padding: '40px 24px' }}>
+            <div style={{ fontSize: 32, marginBottom: 16 }}>○</div>
+            <p style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
+              Ikke nok data ennå
+            </p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0 }}>
+              Logg minst <span style={{ color: 'var(--text-accent)', fontWeight: 500 }}>3 moments</span> for å se mønstre her.
+              Du har {moments.length} av 3.
+            </p>
+          </Card>
+        </div>
+      )}
+
+      {/* Direction relevance score */}
+      {hasData && keywords.length > 0 && (
+        <div style={{ padding: '0 24px', marginBottom: 28 }}>
+          <SectionLabel>Retningsrelevans</SectionLabel>
+          <Card>
+            {directionStats ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 32, fontWeight: 600, color: 'var(--accent-soft)', lineHeight: 1 }}>
+                    {directionStats.score}%
+                  </span>
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>av din beste energi skjer i tråd med retningen</span>
+                </div>
+                {directionStats.topKeywords.length > 0 && (
+                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 16px' }}>
+                    {directionStats.topKeywords.map((k, i) => (
+                      <React.Fragment key={k}>
+                        <span style={{ color: 'var(--text-accent)', fontWeight: 500 }}>{k}</span>
+                        {i < directionStats.topKeywords.length - 1 ? ' og ' : ''}
+                      </React.Fragment>
+                    ))} matcher konsekvent dine høyenergi-øyeblikk.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.6 }}>
+                Logg aktiviteter med energi 7+ for å se retningsrelevans.
+              </p>
+            )}
+
+            {/* Gap indicator */}
+            {gapPct !== null && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, color: 'var(--text-muted)' }}>
+                  <span>Tid i tråd med retning</span>
+                  <span>{gapPct}%</span>
+                </div>
+                <div style={{ height: 6, background: 'rgba(255,255,255,.08)', borderRadius: 6 }}>
+                  <div style={{
+                    height: '100%', borderRadius: 6,
+                    width: `${gapPct}%`,
+                    background: gapPct >= 50
+                      ? 'linear-gradient(90deg, var(--accent), var(--accent-soft))'
+                      : 'linear-gradient(90deg, rgba(139,92,246,.4), rgba(167,139,250,.4))',
+                    transition: 'width 0.6s ease'
+                  }} />
+                </div>
+              </div>
+            )}
+
+            {/* Pattern sentence */}
+            {patternSentence && (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '14px 0 0', paddingTop: 14, borderTop: '1px solid rgba(255,255,255,.06)', lineHeight: 1.6 }}>
+                {patternSentence}
+              </p>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* Energy by hour */}
       <div style={{ padding: '0 24px', marginBottom: 28 }}>
@@ -90,7 +303,7 @@ export default function InsightsScreen() {
             <>
               <ResponsiveContainer width="100%" height={80}>
                 <BarChart data={hourData} barSize={14} margin={{ top: 4, right: 0, left: -32, bottom: 0 }}>
-                  <XAxis dataKey="hour" tick={{ fill: 'var(--text-faint)', fontSize: 10, fontFamily: 'DM Sans' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="hour" tick={{ fill: 'var(--text-muted)', fontSize: 10, fontFamily: 'DM Sans' }} axisLine={false} tickLine={false} />
                   <YAxis domain={[0, 10]} hide />
                   <Bar dataKey="avg" radius={[3, 3, 0, 0]}>
                     {hourData.map((entry, i) => (
@@ -110,44 +323,52 @@ export default function InsightsScreen() {
         </Card>
       </div>
 
-      {/* Energy by activity */}
+      {/* Energy by activity — grouped by keyword when available */}
       <div style={{ padding: '0 24px', marginBottom: 28 }}>
         <SectionLabel>Energy by activity</SectionLabel>
-        <Card>
-          {activityData.length === 0 ? (
+        {activityData.length === 0 ? (
+          <Card>
             <EmptyState message="Log activities to see patterns here." />
-          ) : (
-            <>
-              {[...top3, ...bottom3].map((item, i) => (
-                <div key={item.activity} style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 0',
-                  borderBottom: i < top3.length + bottom3.length - 1 ? '1px solid rgba(255,255,255,.06)' : 'none',
-                  fontSize: 14, color: 'var(--text-secondary)'
+          </Card>
+        ) : activitiesByKeyword && (activitiesByKeyword.groups.length > 0 || activitiesByKeyword.unmatched.length > 0) ? (
+          <>
+            {activitiesByKeyword.groups.map(({ keyword, activities }) => (
+              <div key={keyword} style={{ marginBottom: 12 }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: 'var(--text-accent)', marginBottom: 6, paddingLeft: 2
                 }}>
-                  <span style={{ flex: 1, marginRight: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.activity}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                    <div style={{ width: 80, height: 4, background: 'rgba(255,255,255,.08)', borderRadius: 4 }}>
-                      <div style={{
-                        height: '100%', borderRadius: 4,
-                        width: `${(item.avg / 10) * 100}%`,
-                        background: 'linear-gradient(90deg, var(--accent), var(--accent-soft))',
-                        opacity: i < 3 ? 1 : 0.4
-                      }} />
-                    </div>
-                    <span style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 28, textAlign: 'right' }}>{item.avg}</span>
-                  </div>
+                  {keyword}
                 </div>
-              ))}
-            </>
-          )}
-        </Card>
-        {activityData.length > 0 && (
-          <p style={{ fontSize: 13, color: 'var(--text-faint)', marginTop: 10, lineHeight: 1.6 }}>
-            You consistently report higher energy during certain activities.
-          </p>
+                <Card style={{ padding: '4px 20px' }}>
+                  {activities.map((item, i) => (
+                    <ActivityRow key={item.activity} item={item} isLast={i === activities.length - 1} />
+                  ))}
+                </Card>
+              </div>
+            ))}
+            {activitiesByKeyword.unmatched.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{
+                  fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: 'var(--text-muted)', marginBottom: 6, paddingLeft: 2
+                }}>
+                  Andre aktiviteter
+                </div>
+                <Card style={{ padding: '4px 20px' }}>
+                  {activitiesByKeyword.unmatched.map((item, i) => (
+                    <ActivityRow key={item.activity} item={item} isLast={i === activitiesByKeyword.unmatched.length - 1} dimmed />
+                  ))}
+                </Card>
+              </div>
+            )}
+          </>
+        ) : (
+          <Card>
+            {[...top3, ...bottom3].map((item, i) => (
+              <ActivityRow key={item.activity} item={item} isLast={i === top3.length + bottom3.length - 1} dimmed={i >= top3.length} />
+            ))}
+          </Card>
         )}
       </div>
 
@@ -176,7 +397,7 @@ export default function InsightsScreen() {
             ))}
           </div>
           {alignChoice && (
-            <p style={{ fontSize: 13, color: 'var(--accent)', marginTop: 12 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-accent)', marginTop: 12 }}>
               Alignment score: {ALIGNMENT_SCORES[alignChoice]}
             </p>
           )}

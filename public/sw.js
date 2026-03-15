@@ -1,6 +1,9 @@
 // Kairos Service Worker
 // Handles push notifications and schedule management
 
+import { precacheAndRoute } from 'workbox-precaching'
+precacheAndRoute(self.__WB_MANIFEST)
+
 const CACHE_NAME = 'kairos-v1'
 
 // ── INSTALL & CACHE ──────────────────────────────────────────

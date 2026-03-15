@@ -154,7 +154,7 @@ export function SectionLabel({ children }) {
   return (
     <div style={{
       fontSize: 12,
-      color: 'var(--text-faint)',
+      color: 'var(--text-muted)',
       letterSpacing: '.1em',
       textTransform: 'uppercase',
       marginBottom: 12
