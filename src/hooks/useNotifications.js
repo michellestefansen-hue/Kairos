@@ -88,12 +88,7 @@ export function useNotifications() {
 
     if (!window.OneSignal) return
 
-    let playerId
-    try {
-      playerId = await window.OneSignal.getUserId()
-    } catch {
-      return
-    }
+    const playerId = window.OneSignal.User?.PushSubscription?.id
     if (!playerId) return
 
     // Build schedule for today + next 6 days

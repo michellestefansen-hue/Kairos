@@ -1,6 +1,7 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import useKairosStore from '../../store/useKairosStore'
 import { Toggle } from '../../components/ui'
+import { useNotifications } from '../../hooks/useNotifications'
 
 function SettingRow({ label, value, onPress, danger }) {
   return (
@@ -28,6 +29,23 @@ function SettingRow({ label, value, onPress, danger }) {
 export default function SettingsScreen() {
   const store = useKairosStore()
   const [showConfirmReset, setShowConfirmReset] = useState(false)
+  const [debugInfo, setDebugInfo] = useState('checking...')
+  const { requestPermission, scheduleToday } = useNotifications()
+  const [notifStatus, setNotifStatus] = useState(null)
+
+  useEffect(() => {
+    async function check() {
+      if (!window.OneSignal) { setDebugInfo('OneSignal not loaded'); return }
+      try {
+        const id = window.OneSignal.User?.PushSubscription?.id
+        const permission = window.OneSignal.Notifications?.permission
+        setDebugInfo(`id: ${id || 'null'} | permission: ${permission}`)
+      } catch (e) {
+        setDebugInfo(`error: ${e.message}`)
+      }
+    }
+    check()
+  }, [])
 
   const handleExport = () => {
     const data = store.exportData()
@@ -80,6 +98,33 @@ export default function SettingsScreen() {
           />
         </div>
         <SettingRow label="Quiet hours" value={`${store.quietHoursStart}:00 – ${String(store.quietHoursEnd).padStart(2,'0')}:00`} onPress={() => {}} />
+        {!store.notificationsGranted && (
+          <div style={{ padding: '12px 24px' }}>
+            <button
+              onClick={async () => {
+                const result = await requestPermission()
+                setNotifStatus(result)
+                if (result === 'granted') {
+                  store.setLastScheduledDate(null)
+                  await scheduleToday()
+                }
+              }}
+              style={{
+                width: '100%', padding: '12px', borderRadius: 12,
+                background: 'rgba(109,40,217,.25)', border: '1.5px solid rgba(167,139,250,.4)',
+                color: 'var(--text-primary)', fontSize: 15, cursor: 'pointer',
+                fontFamily: 'var(--font-ui)'
+              }}
+            >
+              {notifStatus === 'granted' ? 'Reminders enabled' : 'Enable reminders'}
+            </button>
+            {notifStatus === 'denied' && (
+              <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
+                Go to iOS Settings → Kairos → Notifications to enable.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Data */}
@@ -98,6 +143,7 @@ export default function SettingsScreen() {
       {/* Version */}
       <div style={{ padding: '8px 24px 40px', textAlign: 'center' }}>
         <p style={{ fontSize: 12, color: 'var(--text-faint)' }}>Kairos · 1.0.0</p>
+        <p style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4, wordBreak: 'break-all' }}>{debugInfo}</p>
       </div>
     </div>
   )
