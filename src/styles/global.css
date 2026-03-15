@@ -1,0 +1,96 @@
+/* ── KAIROS DESIGN TOKENS ─────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --bg-deep:       #0F172A;
+  --bg-mid:        #1E1B4B;
+  --bg-surface:    rgba(255, 255, 255, 0.05);
+  --bg-surface-2:  rgba(255, 255, 255, 0.04);
+
+  /* Accent */
+  --accent:        #6D28D9;
+  --accent-mid:    #7C3AED;
+  --accent-light:  #8B5CF6;
+  --accent-soft:   #A78BFA;
+  --accent-pale:   #C4B5FD;
+  --accent-ghost:  rgba(109, 40, 217, 0.08);
+  --accent-glow:   rgba(139, 92, 246, 0.2);
+
+  /* Text */
+  --text-primary:   #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted:     #64748B;
+  --text-faint:     #334155;
+  --text-accent:    #A78BFA;
+
+  /* Borders */
+  --border-soft:    rgba(167, 139, 250, 0.15);
+  --border-mid:     rgba(167, 139, 250, 0.30);
+  --border-strong:  rgba(167, 139, 250, 0.50);
+  --border-ui:      rgba(255, 255, 255, 0.07);
+
+  /* Feedback */
+  --success:        #6EE7B7;
+  --success-bg:     rgba(16, 185, 129, 0.12);
+  --success-border: rgba(16, 185, 129, 0.35);
+  --error:          #FCA5A5;
+  --error-bg:       rgba(239, 68, 68, 0.10);
+  --error-border:   rgba(239, 68, 68, 0.30);
+
+  /* Typography */
+  --font-ui:        'DM Sans', sans-serif;
+  --font-logo:      'Cormorant Garamond', serif;
+
+  /* Spacing */
+  --page-pad:       24px;
+  --radius-card:    20px;
+  --radius-btn:     100px;
+  --radius-input:   16px;
+  --radius-chip:    100px;
+}
+
+/* ── RESET ─────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg-deep);
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+button {
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+input, textarea {
+  font-family: var(--font-ui);
+}
+
+/* ── SCROLLBAR ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 0; background: transparent; }
+
+/* ── SELECTION ─────────────────────────────────────────────── */
+::selection {
+  background: rgba(139, 92, 246, 0.3);
+  color: var(--text-primary);
+}
