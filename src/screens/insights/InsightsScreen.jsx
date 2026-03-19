@@ -4,7 +4,6 @@ import useKairosStore from '../../store/useKairosStore'
 import { Card, SectionLabel } from '../../components/ui'
 
 const ALIGNMENT_SCORES = { Yes: 100, Partly: 60, No: 20 }
-const HIGH_ENERGY_THRESHOLD = 7
 
 function EmptyState({ message }) {
   return (
@@ -60,9 +59,9 @@ function generatePatternSentence(moments, keywords, activityData) {
       const diff = Math.round(Math.abs(avgWith - avgWithout) * 10) / 10
       if (diff >= 1) {
         if (avgWith > avgWithout) {
-          return `Aktiviteter som matcher retningen din gir deg ${diff} poeng mer energi i snitt.`
+          return `Activities matching your direction give you ${diff} more points of energy on average.`
         } else {
-          return `Aktiviteter utenfor retningen din gir deg ${diff} poeng mer energi — verdt å reflektere over.`
+          return `Activities outside your direction give you ${diff} more points of energy — worth reflecting on.`
         }
       }
     }
@@ -74,7 +73,7 @@ function generatePatternSentence(moments, keywords, activityData) {
     const bottom = activityData[activityData.length - 1]
     const diff = Math.round((top.avg - bottom.avg) * 10) / 10
     if (diff >= 2) {
-      return `"${top.activity}" gir deg ${diff} poeng mer energi enn "${bottom.activity}".`
+      return `"${top.activity}" gives you ${diff} more energy than "${bottom.activity}".`
     }
   }
 
@@ -91,8 +90,8 @@ function generatePatternSentence(moments, keywords, activityData) {
     .map(([period, es]) => ({ period, avg: es.reduce((a, b) => a + b, 0) / es.length }))
     .sort((a, b) => b.avg - a.avg)
   if (periodAvgs.length >= 2) {
-    const names = { morning: 'morgen', afternoon: 'ettermiddag', evening: 'kveld' }
-    return `Du er mest energisk om ${names[periodAvgs[0].period]} og minst om ${names[periodAvgs[periodAvgs.length - 1].period]}.`
+    const names = { morning: 'morning', afternoon: 'afternoon', evening: 'evening' }
+    return `You're most energized in the ${names[periodAvgs[0].period]} and least in the ${names[periodAvgs[periodAvgs.length - 1].period]}.`
   }
 
   return null
@@ -101,20 +100,27 @@ function generatePatternSentence(moments, keywords, activityData) {
 export default function InsightsScreen() {
   const moments = useKairosStore(s => s.moments)
   const keywords = useKairosStore(s => s.keywords)
+  const direction = useKairosStore(s => s.direction)
+  const setActiveTab = useKairosStore(s => s.setActiveTab)
   const addWeeklyAlignment = useKairosStore(s => s.addWeeklyAlignment)
   const [alignChoice, setAlignChoice] = useState(null)
 
   const hasData = moments.length >= 3
 
-  // Direction relevance: % of high-energy moments matching keywords
+  // Direction alignment: compare avg energy for aligned vs other activities
   const directionStats = useMemo(() => {
     if (!hasData || !keywords.length) return null
-    const highEnergy = moments.filter(m => m.energy >= HIGH_ENERGY_THRESHOLD)
-    if (!highEnergy.length) return null
-    const matching = highEnergy.filter(m => m.activity && getMatchingKeywords(m.activity, keywords).length > 0)
-    const score = Math.round((matching.length / highEnergy.length) * 100)
+    const withActivity = moments.filter(m => m.activity?.trim())
+    if (!withActivity.length) return null
+    const aligned = withActivity.filter(m => getMatchingKeywords(m.activity, keywords).length > 0)
+    const other = withActivity.filter(m => getMatchingKeywords(m.activity, keywords).length === 0)
+    if (!aligned.length) return null
+    const avgAligned = Math.round((aligned.reduce((s, m) => s + m.energy, 0) / aligned.length) * 10) / 10
+    const avgOther = other.length
+      ? Math.round((other.reduce((s, m) => s + m.energy, 0) / other.length) * 10) / 10
+      : null
     const keywordCounts = {}
-    matching.forEach(m => {
+    aligned.forEach(m => {
       getMatchingKeywords(m.activity, keywords).forEach(k => {
         keywordCounts[k] = (keywordCounts[k] || 0) + 1
       })
@@ -123,7 +129,7 @@ export default function InsightsScreen() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 2)
       .map(([k]) => k)
-    return { score, topKeywords }
+    return { avgAligned, avgOther, topKeywords }
   }, [moments, keywords, hasData])
 
   // Gap indicator: % of all moments aligned with direction
@@ -217,49 +223,90 @@ export default function InsightsScreen() {
         <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>Based on your recent check-ins.</p>
       </div>
 
+      {/* Your direction */}
+      {(direction || keywords.length > 0) && (
+        <div style={{ padding: '0 24px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', letterSpacing: '.1em', textTransform: 'uppercase' }}>Your direction</div>
+            <button
+              onClick={() => setActiveTab('settings')}
+              style={{ background: 'none', border: 'none', color: 'var(--text-accent)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-ui)', padding: '4px 0' }}
+            >Edit →</button>
+          </div>
+          <Card>
+            {direction && (
+              <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-secondary)', lineHeight: 1.7, margin: keywords.length > 0 ? '0 0 14px' : 0, fontStyle: 'italic' }}>
+                "{direction}"
+              </p>
+            )}
+            {keywords.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {keywords.map(k => (
+                  <span key={k} style={{
+                    fontSize: 12, padding: '4px 10px', borderRadius: 20,
+                    background: 'rgba(109,40,217,.18)',
+                    border: '1px solid rgba(167,139,250,.3)',
+                    color: 'var(--accent-pale)',
+                    fontFamily: 'var(--font-ui)'
+                  }}>{k}</span>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
       {/* Not enough data gate */}
       {!hasData && (
         <div style={{ padding: '0 24px' }}>
           <Card style={{ textAlign: 'center', padding: '40px 24px' }}>
             <div style={{ fontSize: 32, marginBottom: 16 }}>○</div>
             <p style={{ fontSize: 15, color: 'var(--text-secondary)', marginBottom: 6, fontWeight: 500 }}>
-              Ikke nok data ennå
+              Not enough data yet
             </p>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, margin: 0 }}>
-              Logg minst <span style={{ color: 'var(--text-accent)', fontWeight: 500 }}>3 moments</span> for å se mønstre her.
-              Du har {moments.length} av 3.
+              Log at least <span style={{ color: 'var(--text-accent)', fontWeight: 500 }}>3 moments</span> to see patterns here.
+              You have {moments.length} of 3.
             </p>
           </Card>
         </div>
       )}
 
-      {/* Direction relevance score */}
+      {/* Direction alignment */}
       {hasData && keywords.length > 0 && (
         <div style={{ padding: '0 24px', marginBottom: 28 }}>
-          <SectionLabel>Retningsrelevans</SectionLabel>
+          <SectionLabel>Direction alignment</SectionLabel>
           <Card>
             {directionStats ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 32, fontWeight: 600, color: 'var(--accent-soft)', lineHeight: 1 }}>
-                    {directionStats.score}%
-                  </span>
-                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>av din beste energi skjer i tråd med retningen</span>
+                <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                  <div style={{ flex: 1, background: 'rgba(139,92,246,.12)', borderRadius: 10, padding: '12px 14px' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>In direction</div>
+                    <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--accent-soft)', lineHeight: 1 }}>{directionStats.avgAligned}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>avg energy</div>
+                  </div>
+                  {directionStats.avgOther !== null && (
+                    <div style={{ flex: 1, background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '12px 14px' }}>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Outside</div>
+                      <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1 }}>{directionStats.avgOther}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>avg energy</div>
+                    </div>
+                  )}
                 </div>
                 {directionStats.topKeywords.length > 0 && (
                   <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 16px' }}>
                     {directionStats.topKeywords.map((k, i) => (
                       <React.Fragment key={k}>
                         <span style={{ color: 'var(--text-accent)', fontWeight: 500 }}>{k}</span>
-                        {i < directionStats.topKeywords.length - 1 ? ' og ' : ''}
+                        {i < directionStats.topKeywords.length - 1 ? ' and ' : ''}
                       </React.Fragment>
-                    ))} matcher konsekvent dine høyenergi-øyeblikk.
+                    ))} show up most in your high-energy moments.
                   </p>
                 )}
               </>
             ) : (
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.6 }}>
-                Logg aktiviteter med energi 7+ for å se retningsrelevans.
+                Log activities to see how your energy compares inside and outside your direction.
               </p>
             )}
 
@@ -267,7 +314,7 @@ export default function InsightsScreen() {
             {gapPct !== null && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 12, color: 'var(--text-muted)' }}>
-                  <span>Tid i tråd med retning</span>
+                  <span>Time invested in direction</span>
                   <span>{gapPct}%</span>
                 </div>
                 <div style={{ height: 6, background: 'rgba(255,255,255,.08)', borderRadius: 6 }}>
@@ -353,7 +400,7 @@ export default function InsightsScreen() {
                   fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
                   color: 'var(--text-muted)', marginBottom: 6, paddingLeft: 2
                 }}>
-                  Andre aktiviteter
+                  Other activities
                 </div>
                 <Card style={{ padding: '4px 20px' }}>
                   {activitiesByKeyword.unmatched.map((item, i) => (

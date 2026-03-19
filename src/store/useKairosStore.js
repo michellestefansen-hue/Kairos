@@ -59,6 +59,20 @@ const useKairosStore = create(
       closeMomentFlow: () => set({ momentFlowOpen: false }),
 
       // ── UTILS ──────────────────────────────────────────────
+      getRecentTags: () => {
+        const { moments } = get()
+        const counts = {}
+        moments.forEach(m => {
+          if (m.tags?.length) {
+            m.tags.forEach(t => { counts[t] = (counts[t] || 0) + 1 })
+          }
+        })
+        return Object.entries(counts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8)
+          .map(([t]) => t)
+      },
+
       getRecentActivities: () => {
         const { moments } = get()
         const seen = new Set()

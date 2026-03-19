@@ -1,7 +1,23 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import useKairosStore from '../../store/useKairosStore'
-import { Toggle } from '../../components/ui'
+import { Toggle, Chip, PipProgress, TextInput } from '../../components/ui'
 import { useNotifications } from '../../hooks/useNotifications'
+
+const STOP = new Set(['i','me','my','myself','we','our','ours','you','your','yourself','he','him','his','she','her','hers','it','its','they','them','their','what','which','who','this','that','these','those','am','is','are','was','were','be','been','being','have','has','had','do','does','did','a','an','the','and','but','if','or','because','as','until','while','of','at','by','for','with','about','into','through','during','before','after','to','from','up','down','in','out','on','off','over','under','again','then','here','there','when','where','why','how','all','both','each','more','most','other','some','no','nor','not','only','own','same','so','than','too','very','can','will','just','should','now','want','make','also','stay','get','feel','know','able','always','never','still','even','every','many','much','things','something','life','day','year','time','people','person','way','truly','really','deeply'])
+const FALLBACK = ['Focus','Purpose','Balance','Growth','Presence','Depth','Clarity','Courage','Impact','Connection','Rest','Learning','Creativity','Health','Calm','Leadership']
+
+function extractKeywords(text) {
+  const tokens = text.toLowerCase()
+    .replace(/['']/g, "'").replace(/[^a-z'\s-]/g, ' ')
+    .split(/\s+/).map(w => w.replace(/^['-]+|['-]+$/g, ''))
+    .filter(w => w.length > 2 && !STOP.has(w))
+  const seen = new Set(), unique = []
+  tokens.forEach(w => {
+    const cap = w.charAt(0).toUpperCase() + w.slice(1)
+    if (!seen.has(w)) { seen.add(w); unique.push(cap) }
+  })
+  return unique
+}
 
 function SettingRow({ label, value, onPress, danger }) {
   return (
@@ -26,12 +42,53 @@ function SettingRow({ label, value, onPress, danger }) {
   )
 }
 
+function EditPanel({ children }) {
+  return (
+    <div style={{ padding: '16px 24px 20px', borderBottom: '1px solid rgba(255,255,255,.06)', background: 'rgba(109,40,217,.06)' }}>
+      {children}
+    </div>
+  )
+}
+
+function SaveRow({ onSave, onCancel, disabled }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+      <button
+        onClick={onCancel}
+        style={{
+          flex: 1, padding: '11px', borderRadius: 12,
+          border: '1.5px solid rgba(167,139,250,.3)', background: 'transparent',
+          color: 'var(--accent-pale)', fontFamily: 'var(--font-ui)', fontSize: 14, cursor: 'pointer'
+        }}
+      >Cancel</button>
+      <button
+        onClick={onSave}
+        disabled={disabled}
+        style={{
+          flex: 1, padding: '11px', borderRadius: 12,
+          border: 'none', background: disabled ? 'rgba(109,40,217,.2)' : 'var(--accent)',
+          color: disabled ? 'var(--text-faint)' : '#fff',
+          fontFamily: 'var(--font-ui)', fontSize: 14,
+          cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1
+        }}
+      >Save</button>
+    </div>
+  )
+}
+
 export default function SettingsScreen() {
   const store = useKairosStore()
   const [showConfirmReset, setShowConfirmReset] = useState(false)
   const [debugInfo, setDebugInfo] = useState('checking...')
   const { requestPermission, scheduleToday } = useNotifications()
   const [notifStatus, setNotifStatus] = useState(null)
+  const [editingSection, setEditingSection] = useState(null) // null | 'direction' | 'keywords'
+
+  // Direction edit state
+  const [draftDirection, setDraftDirection] = useState('')
+
+  // Keywords edit state
+  const [draftSelected, setDraftSelected] = useState(new Set())
 
   useEffect(() => {
     async function check() {
@@ -46,6 +103,37 @@ export default function SettingsScreen() {
     }
     check()
   }, [])
+
+  const openDirection = () => {
+    setDraftDirection(store.direction)
+    setEditingSection('direction')
+  }
+
+  const saveDirection = () => {
+    store.setDirection(draftDirection)
+    setEditingSection(null)
+  }
+
+  const openKeywords = () => {
+    setDraftSelected(new Set(store.keywords))
+    setEditingSection('keywords')
+  }
+
+  const toggleKeyword = useCallback((word) => {
+    setDraftSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(word)) next.delete(word)
+      else if (next.size < 5) next.add(word)
+      return next
+    })
+  }, [])
+
+  const saveKeywords = () => {
+    store.setKeywords([...draftSelected])
+    setEditingSection(null)
+  }
+
+  const cancel = () => setEditingSection(null)
 
   const handleExport = () => {
     const data = store.exportData()
@@ -68,6 +156,18 @@ export default function SettingsScreen() {
     }
   }
 
+  // Keyword picker options based on current (draft) direction
+  const directionForKeywords = editingSection === 'keywords' ? store.direction : ''
+  const yourWords = extractKeywords(directionForKeywords).slice(0, 8)
+  const yourLower = new Set(yourWords.map(w => w.toLowerCase()))
+  const extras = FALLBACK.filter(w => !yourLower.has(w.toLowerCase())).slice(0, 8)
+  const kwCount = draftSelected.size
+  const kwReady = kwCount >= 3 && kwCount <= 5
+  const kwCountText = kwCount === 0 ? 'Choose at least 3'
+    : kwCount < 3 ? `${kwCount} selected — ${3 - kwCount} more to go`
+    : kwCount <= 5 ? `${kwCount} selected — good to go`
+    : `${kwCount} selected — maximum is 5`
+
   return (
     <div style={{ flex: 1, overflowY: 'auto' }}>
       <div style={{ padding: '28px 24px 20px' }}>
@@ -79,8 +179,59 @@ export default function SettingsScreen() {
         Profile
       </div>
       <div style={{ background: 'rgba(255,255,255,.02)', marginBottom: 20 }}>
-        <SettingRow label="Direction" onPress={() => {}} />
-        <SettingRow label="Keywords" value={store.keywords.slice(0, 3).join(', ') + (store.keywords.length > 3 ? '…' : '')} onPress={() => {}} />
+        <SettingRow
+          label="Direction"
+          value={store.direction ? store.direction.slice(0, 32) + (store.direction.length > 32 ? '…' : '') : 'Not set'}
+          onPress={editingSection === 'direction' ? null : openDirection}
+        />
+        {editingSection === 'direction' && (
+          <EditPanel>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+              Imagine your life summarized in one sentence.
+            </p>
+            <TextInput
+              multiline
+              rows={3}
+              value={draftDirection}
+              onChange={e => setDraftDirection(e.target.value)}
+              placeholder="I create meaningful work and stay present for my family."
+            />
+            <SaveRow onSave={saveDirection} onCancel={cancel} disabled={draftDirection.trim().length < 6} />
+          </EditPanel>
+        )}
+
+        <SettingRow
+          label="Keywords"
+          value={store.keywords.length ? store.keywords.slice(0, 3).join(', ') + (store.keywords.length > 3 ? '…' : '') : 'Not set'}
+          onPress={editingSection === 'keywords' ? null : openKeywords}
+        />
+        {editingSection === 'keywords' && (
+          <EditPanel>
+            {yourWords.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 10 }}>
+                  From your direction
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                  {yourWords.map(w => (
+                    <Chip key={w} label={w} isYours selected={draftSelected.has(w)} onClick={() => toggleKeyword(w)} />
+                  ))}
+                </div>
+                <div style={{ height: 1, background: 'rgba(167,139,250,.1)', marginBottom: 14 }} />
+              </>
+            )}
+            <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 10 }}>
+              Suggestions
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {extras.map(w => (
+                <Chip key={w} label={w} selected={draftSelected.has(w)} onClick={() => toggleKeyword(w)} />
+              ))}
+            </div>
+            <PipProgress total={5} filled={kwCount} text={kwCountText} textReady={kwReady} />
+            <SaveRow onSave={saveKeywords} onCancel={cancel} disabled={!kwReady} />
+          </EditPanel>
+        )}
       </div>
 
       {/* Reminders */}
