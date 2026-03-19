@@ -196,7 +196,7 @@ function EnergyScreen({ value, onChange, onNext }) {
         <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>{timeStr}</span>
       </div>
 
-      <div style={{ padding: '12px 24px 4px', flexShrink: 0 }}>
+      <div style={{ padding: '12px 24px 4px', flexShrink: 0, textAlign: 'center' }}>
         <h1 style={{ fontSize: 19, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.4 }}>
           How energized do you feel right now?
         </h1>
