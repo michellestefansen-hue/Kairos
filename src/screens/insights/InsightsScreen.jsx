@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts'
 import useKairosStore from '../../store/useKairosStore'
 import { Card, SectionLabel } from '../../components/ui'
 
-const ALIGNMENT_SCORES = { Yes: 100, Partly: 60, No: 20 }
+
 
 function EmptyState({ message }) {
   return (
@@ -94,15 +94,222 @@ function generateActivitySentence(moments, activityData) {
   return null
 }
 
+// ── SNAPSHOT CARD GENERATOR ──────────────────────────────────
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000
+
+function generateSnapshotCard(moments, keywords) {
+  if (moments.length < 3) return null
+
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const recentWithActivity = moments.filter(m => m.timestamp > sevenDaysAgo && m.activity?.trim())
+
+  // 1. Flow moment — highest energy in last 7 days with a known activity
+  if (recentWithActivity.length >= 1) {
+    const peak = recentWithActivity.reduce((a, b) => a.energy > b.energy ? a : b)
+    if (peak.energy >= 7) {
+      const tagStr = peak.tags?.length ? peak.tags.slice(0, 2).join(' · ') : null
+      return {
+        type: 'flow',
+        headline: 'Your flow moment',
+        detail: peak.activity.trim(),
+        sub: tagStr || `Energy ${peak.energy}/10`,
+        generatedAt: Date.now()
+      }
+    }
+  }
+
+  // 2. Personal record — activity that hit all-time high energy this week (≥8)
+  const allTimeMax = {}
+  moments.forEach(m => {
+    const a = m.activity?.trim()
+    if (!a) return
+    if (m.energy > (allTimeMax[a] || 0)) allTimeMax[a] = m.energy
+  })
+  const recentMax = {}
+  recentWithActivity.forEach(m => {
+    const a = m.activity.trim()
+    if (m.energy >= (recentMax[a] || 0)) recentMax[a] = m.energy
+  })
+  const record = Object.entries(recentMax)
+    .filter(([a, e]) => e >= 8 && e >= allTimeMax[a])
+    .sort((a, b) => b[1] - a[1])[0]
+  if (record) {
+    return {
+      type: 'record',
+      headline: 'Personal record',
+      detail: record[0],
+      sub: `Hit ${record[1]}/10 this week — your best ever`,
+      generatedAt: Date.now()
+    }
+  }
+
+  // 3. Direction streak — consecutive days with direction-tagged moments
+  if (keywords.length > 0) {
+    const dirMoments = moments.filter(m =>
+      m.tags?.some(t => keywords.some(k => k.toLowerCase() === t.toLowerCase()))
+    )
+    if (dirMoments.length >= 2) {
+      const days = [...new Set(dirMoments.map(m => new Date(m.timestamp).toISOString().slice(0, 10)))].sort()
+      let streak = 1, maxStreak = 1
+      for (let i = 1; i < days.length; i++) {
+        const diff = (new Date(days[i]) - new Date(days[i - 1])) / 86400000
+        if (diff === 1) { streak++; maxStreak = Math.max(maxStreak, streak) }
+        else streak = 1
+      }
+      if (maxStreak >= 2) {
+        return {
+          type: 'streak',
+          headline: 'Direction streak',
+          detail: `${maxStreak} days in a row`,
+          sub: 'Moments aligned with your direction',
+          generatedAt: Date.now()
+        }
+      }
+    }
+  }
+
+  // 4. Hidden gem — activity logged ≤2 times but avg energy ≥7
+  const actStats = {}
+  moments.forEach(m => {
+    const a = m.activity?.trim()
+    if (!a) return
+    if (!actStats[a]) actStats[a] = { sum: 0, count: 0 }
+    actStats[a].sum += m.energy
+    actStats[a].count++
+  })
+  const gem = Object.entries(actStats)
+    .map(([a, { sum, count }]) => ({ activity: a, avg: sum / count, count }))
+    .filter(s => s.count <= 2 && s.avg >= 7)
+    .sort((a, b) => b.avg - a.avg)[0]
+  if (gem) {
+    return {
+      type: 'gem',
+      headline: 'Hidden gem',
+      detail: gem.activity,
+      sub: `High energy, rarely logged — worth doing more`,
+      generatedAt: Date.now()
+    }
+  }
+
+  // 5. Contrast — biggest energy gap between any two activities
+  const ranked = Object.entries(actStats)
+    .map(([a, { sum, count }]) => ({ activity: a, avg: Math.round((sum / count) * 10) / 10 }))
+    .sort((a, b) => b.avg - a.avg)
+  if (ranked.length >= 2) {
+    const top = ranked[0]
+    const bottom = ranked[ranked.length - 1]
+    const diff = Math.round((top.avg - bottom.avg) * 10) / 10
+    if (diff >= 2) {
+      return {
+        type: 'contrast',
+        headline: 'Energy contrast',
+        detail: `"${top.activity}" vs "${bottom.activity}"`,
+        sub: `${diff} point gap in energy`,
+        generatedAt: Date.now()
+      }
+    }
+  }
+
+  // 6. Pattern — time-of-day peak
+  const byPeriod = { morning: [], afternoon: [], evening: [] }
+  moments.forEach(m => {
+    const h = new Date(m.timestamp).getHours()
+    if (h >= 5 && h < 12) byPeriod.morning.push(m.energy)
+    else if (h >= 12 && h < 17) byPeriod.afternoon.push(m.energy)
+    else if (h >= 17 && h < 22) byPeriod.evening.push(m.energy)
+  })
+  const periodAvgs = Object.entries(byPeriod)
+    .filter(([, es]) => es.length >= 2)
+    .map(([period, es]) => ({ period, avg: Math.round((es.reduce((a, b) => a + b, 0) / es.length) * 10) / 10 }))
+    .sort((a, b) => b.avg - a.avg)
+  if (periodAvgs.length >= 1) {
+    const peak = periodAvgs[0]
+    return {
+      type: 'pattern',
+      headline: 'Energy pattern',
+      detail: `You peak in the ${peak.period}`,
+      sub: `Average ${peak.avg}/10 during ${peak.period} check-ins`,
+      generatedAt: Date.now()
+    }
+  }
+
+  return null
+}
+
+const CARD_STYLES = {
+  flow:     { symbol: '⚡', color: '#A78BFA', bg: 'rgba(139,92,246,.12)', border: 'rgba(139,92,246,.35)' },
+  record:   { symbol: '◈',  color: '#FCD34D', bg: 'rgba(251,191,36,.08)', border: 'rgba(251,191,36,.3)' },
+  streak:   { symbol: '◉',  color: '#FB923C', bg: 'rgba(251,146,60,.08)', border: 'rgba(251,146,60,.3)' },
+  gem:      { symbol: '◆',  color: '#34D399', bg: 'rgba(52,211,153,.08)', border: 'rgba(52,211,153,.3)' },
+  contrast: { symbol: '⬡',  color: '#A78BFA', bg: 'rgba(109,40,217,.1)',  border: 'rgba(167,139,250,.3)' },
+  pattern:  { symbol: '◐',  color: '#60A5FA', bg: 'rgba(96,165,250,.08)', border: 'rgba(96,165,250,.3)' }
+}
+
+function SnapshotCard({ card }) {
+  const cfg = CARD_STYLES[card.type] || CARD_STYLES.pattern
+  return (
+    <div style={{
+      borderRadius: 16,
+      background: cfg.bg,
+      border: `1px solid ${cfg.border}`,
+      padding: '24px 20px 20px',
+      position: 'relative',
+      overflow: 'hidden'
+    }}>
+      {/* Subtle glow spot */}
+      <div style={{
+        position: 'absolute', top: -30, right: -30,
+        width: 100, height: 100, borderRadius: '50%',
+        background: cfg.color, opacity: 0.07, pointerEvents: 'none'
+      }} />
+
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+          background: `${cfg.color}22`,
+          border: `1px solid ${cfg.color}55`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 18
+        }}>
+          {cfg.symbol}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: cfg.color, letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+            {card.headline}
+          </div>
+          <div style={{ fontSize: 17, fontWeight: 500, color: 'var(--text-primary)', lineHeight: 1.35, marginBottom: 6, wordBreak: 'break-word' }}>
+            {card.detail}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            {card.sub}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── MAIN SCREEN ───────────────────────────────────────────────
 export default function InsightsScreen() {
   const moments = useKairosStore(s => s.moments)
   const keywords = useKairosStore(s => s.keywords)
   const direction = useKairosStore(s => s.direction)
   const setActiveTab = useKairosStore(s => s.setActiveTab)
-  const addWeeklyAlignment = useKairosStore(s => s.addWeeklyAlignment)
-  const [alignChoice, setAlignChoice] = useState(null)
+  const weeklyAlignments = useKairosStore(s => s.weeklyAlignments)
+  const snapshotCard = useKairosStore(s => s.snapshotCard)
+  const setSnapshotCard = useKairosStore(s => s.setSnapshotCard)
 
   const hasData = moments.length >= 3
+
+  // Generate/refresh snapshot card every 2 days
+  useEffect(() => {
+    if (!hasData) return
+    const isStale = !snapshotCard || (Date.now() - snapshotCard.generatedAt) > TWO_DAYS_MS
+    if (isStale) {
+      const card = generateSnapshotCard(moments, keywords)
+      if (card) setSnapshotCard(card)
+    }
+  }, [hasData, moments.length])
 
   const isAligned = (m) => m.tags?.some(t => keywords.some(k => k.toLowerCase() === t.toLowerCase()))
 
@@ -193,10 +400,6 @@ export default function InsightsScreen() {
   const top5 = activityData.slice(0, 5)
   const bottom5 = activityData.length > 5 ? activityData.slice(-5).reverse() : []
 
-  const handleAlign = (choice) => {
-    setAlignChoice(choice)
-    addWeeklyAlignment(choice)
-  }
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '0 0 24px' }}>
@@ -398,50 +601,57 @@ export default function InsightsScreen() {
         )}
       </div>
 
-      {/* Weekly alignment */}
+      {/* Weekly alignment history */}
       <div style={{ padding: '0 24px', marginBottom: 28 }}>
         <SectionLabel>Weekly alignment</SectionLabel>
         <Card>
-          <p style={{ fontSize: 15, color: '#CBD5E1', marginBottom: 0 }}>
-            Did you live in line with your direction this week?
-          </p>
-          <div style={{ display: 'flex', gap: 10, marginTop: 14 }} role="group">
-            {['Yes', 'Partly', 'No'].map(opt => (
-              <button
-                key={opt}
-                onClick={() => handleAlign(opt)}
-                style={{
-                  flex: 1, padding: '12px 8px', borderRadius: 14,
-                  border: `1.5px solid ${alignChoice === opt ? 'var(--accent-mid)' : 'rgba(167,139,250,.3)'}`,
-                  background: alignChoice === opt ? '#5B21B6' : 'rgba(109,40,217,.08)',
-                  color: alignChoice === opt ? '#fff' : 'var(--accent-pale)',
-                  fontFamily: 'var(--font-ui)', fontSize: 14,
-                  cursor: 'pointer', transition: 'all .2s', textAlign: 'center',
-                  minHeight: 44, WebkitAppearance: 'none', appearance: 'none'
-                }}
-              >{opt}</button>
-            ))}
-          </div>
-          {alignChoice && (
-            <p style={{ fontSize: 13, color: 'var(--text-accent)', marginTop: 12 }}>
-              Alignment score: {ALIGNMENT_SCORES[alignChoice]}
-            </p>
+          {weeklyAlignments.length === 0 ? (
+            <EmptyState message="Your weekly Sunday reflection will appear here." />
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                {weeklyAlignments.slice(-12).map((a, i) => (
+                  <div key={i} style={{
+                    width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                    background: a.value === 'Yes' ? '#4ADE80' : a.value === 'Partly' ? '#FACC15' : 'rgba(255,255,255,.15)'
+                  }} />
+                ))}
+              </div>
+              {weeklyAlignments.slice(-4).reverse().map((a, i, arr) => {
+                const weeksAgo = i === 0 ? 'This week' : i === 1 ? 'Last week' : `${i} weeks ago`
+                return (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '9px 0',
+                    borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,.06)' : 'none'
+                  }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{weeksAgo}</span>
+                    <span style={{
+                      fontSize: 13, fontWeight: 500,
+                      color: a.value === 'Yes' ? '#4ADE80' : a.value === 'Partly' ? '#FACC15' : 'var(--text-faint)'
+                    }}>{a.value}</span>
+                  </div>
+                )
+              })}
+            </>
           )}
         </Card>
       </div>
 
-      {/* Snapshot cards placeholder */}
+      {/* Snapshot card */}
       <div style={{ padding: '0 24px' }}>
-        <SectionLabel>Create an energy snapshot</SectionLabel>
-        <Card style={{ textAlign: 'center' }}>
-          {!hasData ? (
-            <EmptyState message="Log at least 3 moments to generate your first snapshot." />
-          ) : (
-            <div style={{ color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
-              Snapshot cards coming soon. Log more moments to unlock.
-            </div>
-          )}
-        </Card>
+        <SectionLabel>Energy snapshot</SectionLabel>
+        {!hasData ? (
+          <Card style={{ textAlign: 'center' }}>
+            <EmptyState message="Log at least 3 moments to unlock your first snapshot." />
+          </Card>
+        ) : snapshotCard ? (
+          <SnapshotCard card={snapshotCard} />
+        ) : (
+          <Card style={{ textAlign: 'center' }}>
+            <EmptyState message="Keep logging — your snapshot is almost ready." />
+          </Card>
+        )}
       </div>
     </div>
   )

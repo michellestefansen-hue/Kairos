@@ -22,6 +22,7 @@ const useKairosStore = create(
       setQuietHours: (start, end) => set({ quietHoursStart: start, quietHoursEnd: end }),
       setNotificationsGranted: (v) => set({ notificationsGranted: v }),
       setLastScheduledDate: (d) => set({ lastScheduledDate: d }),
+      setLastWeeklyPromptDate: (d) => set({ lastWeeklyPromptDate: d }),
       completeOnboarding: () => set({ onboardingComplete: true }),
 
       // ── MOMENTS ────────────────────────────────────────────
@@ -40,6 +41,8 @@ const useKairosStore = create(
 
       // ── INSIGHTS ───────────────────────────────────────────
       weeklyAlignments: [],
+      snapshotCard: null,
+      setSnapshotCard: (card) => set({ snapshotCard: card }),
 
       addWeeklyAlignment: (value) => set(state => ({
         weeklyAlignments: [
@@ -124,8 +127,10 @@ const useKairosStore = create(
         smartTiming: true,
         notificationsGranted: false,
         lastScheduledDate: null,
+        lastWeeklyPromptDate: null,
         moments: [],
         weeklyAlignments: [],
+        snapshotCard: null,
         activeTab: 'moment',
         momentFlowOpen: false
       })
