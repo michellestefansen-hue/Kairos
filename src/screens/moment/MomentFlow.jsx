@@ -11,9 +11,26 @@ const DEFAULT_TAGS = [
 ]
 
 // ── SCREEN 1: ACTIVITY ────────────────────────────────────────
+function ActivityChipGroup({ label, activities, onSelect }) {
+  if (!activities.length) return null
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-faint)', letterSpacing: '.1em', textTransform: 'uppercase', padding: '0 24px', marginBottom: 10 }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 24px' }}>
+        {activities.map(a => (
+          <Chip key={a} label={a} onClick={() => onSelect(a)} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ActivityScreen({ value, onChange, onNext }) {
-  const getRecentActivities = useKairosStore(s => s.getRecentActivities)
-  const recents = getRecentActivities()
+  const getTopBottomActivities = useKairosStore(s => s.getTopBottomActivities)
+  const { top, bottom } = getTopBottomActivities()
+  const hasData = top.length > 0
 
   return (
     <Screen>
@@ -41,20 +58,14 @@ function ActivityScreen({ value, onChange, onNext }) {
         />
       </div>
 
-      {recents.length > 0 && (
-        <>
-          <div style={{ fontSize: 12, color: 'var(--text-faint)', letterSpacing: '.1em', textTransform: 'uppercase', padding: '0 24px', marginBottom: 10 }}>
-            Recent
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 24px' }}>
-            {recents.map(r => (
-              <Chip key={r} label={r} onClick={() => onChange(r)} />
-            ))}
-          </div>
-        </>
+      {hasData && (
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <ActivityChipGroup label="Most energizing" activities={top} onSelect={onChange} />
+          <ActivityChipGroup label="Most draining" activities={bottom} onSelect={onChange} />
+        </div>
       )}
 
-      <div style={{ flex: 1 }} />
+      {!hasData && <div style={{ flex: 1 }} />}
       <BtnArea>
         <Btn onClick={onNext}>Next</Btn>
       </BtnArea>
