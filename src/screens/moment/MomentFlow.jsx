@@ -6,7 +6,8 @@ import { Screen, ScreenNav, BtnArea, Btn, KairosLogo, Chip } from '../../compone
 
 const DEFAULT_TAGS = [
   'Focused', 'Creative', 'Energized', 'Inspired', 'Present', 'Calm', 'In flow', 'Productive',
-  'Drained', 'Scattered', 'Tired', 'Stressed', 'Anxious', 'Bored', 'Distracted', 'Overwhelmed'
+  'Drained', 'Scattered', 'Tired', 'Stressed', 'Anxious', 'Bored', 'Distracted', 'Overwhelmed',
+  'Connected', 'Motivated', 'Confident', 'Grateful', 'Curious', 'Restless', 'Content', 'Playful'
 ]
 
 // ── SCREEN 1: ACTIVITY ────────────────────────────────────────
@@ -69,11 +70,12 @@ function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, savin
   const [customInput, setCustomInput] = useState('')
 
   const recentSet = new Set(recentTags.map(t => t.toLowerCase()))
-  const seen = new Set(recentSet)
+  const directionSet = new Set(directionKeywords.map(t => t.toLowerCase()))
+  const allSeen = new Set([...recentSet, ...directionSet])
   const suggestions = [
     ...recentTags,
-    ...directionKeywords.filter(t => !seen.has(t.toLowerCase()) && !seen.add(t.toLowerCase())),
-    ...DEFAULT_TAGS.filter(t => !seen.has(t.toLowerCase()))
+    ...directionKeywords.filter(t => !recentSet.has(t.toLowerCase())),
+    ...DEFAULT_TAGS.filter(t => !allSeen.has(t.toLowerCase()))
   ]
 
   const handleAddCustom = () => {
