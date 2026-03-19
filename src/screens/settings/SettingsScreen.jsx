@@ -4,7 +4,7 @@ import { Toggle, Chip, PipProgress, TextInput } from '../../components/ui'
 import { useNotifications } from '../../hooks/useNotifications'
 
 const STOP = new Set(['i','me','my','myself','we','our','ours','you','your','yourself','he','him','his','she','her','hers','it','its','they','them','their','what','which','who','this','that','these','those','am','is','are','was','were','be','been','being','have','has','had','do','does','did','a','an','the','and','but','if','or','because','as','until','while','of','at','by','for','with','about','into','through','during','before','after','to','from','up','down','in','out','on','off','over','under','again','then','here','there','when','where','why','how','all','both','each','more','most','other','some','no','nor','not','only','own','same','so','than','too','very','can','will','just','should','now','want','make','also','stay','get','feel','know','able','always','never','still','even','every','many','much','things','something','life','day','year','time','people','person','way','truly','really','deeply'])
-const FALLBACK = ['Focus','Purpose','Balance','Growth','Presence','Depth','Clarity','Courage','Impact','Connection','Rest','Learning','Creativity','Health','Calm','Leadership']
+const FALLBACK = ['Focus','Purpose','Balance','Growth','Presence','Depth','Clarity','Courage','Impact','Connection','Rest','Learning','Creativity','Health','Calm','Leadership','Discipline','Adventure','Meaning','Gratitude','Service']
 
 function extractKeywords(text) {
   const tokens = text.toLowerCase()
@@ -89,6 +89,7 @@ export default function SettingsScreen() {
 
   // Keywords edit state
   const [draftSelected, setDraftSelected] = useState(new Set())
+  const [customKeywordInput, setCustomKeywordInput] = useState('')
 
   useEffect(() => {
     async function check() {
@@ -160,7 +161,7 @@ export default function SettingsScreen() {
   const directionForKeywords = editingSection === 'keywords' ? store.direction : ''
   const yourWords = extractKeywords(directionForKeywords).slice(0, 8)
   const yourLower = new Set(yourWords.map(w => w.toLowerCase()))
-  const extras = FALLBACK.filter(w => !yourLower.has(w.toLowerCase())).slice(0, 8)
+  const extras = FALLBACK.filter(w => !yourLower.has(w.toLowerCase()))
   const kwCount = draftSelected.size
   const kwReady = kwCount >= 3 && kwCount <= 5
   const kwCountText = kwCount === 0 ? 'Choose at least 3'
@@ -223,10 +224,51 @@ export default function SettingsScreen() {
             <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 10 }}>
               Suggestions
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
               {extras.map(w => (
                 <Chip key={w} label={w} selected={draftSelected.has(w)} onClick={() => toggleKeyword(w)} />
               ))}
+              {[...draftSelected].filter(w => !yourWords.includes(w) && !extras.includes(w)).map(w => (
+                <Chip key={w} label={w} selected onClick={() => toggleKeyword(w)} />
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+              <input
+                type="text"
+                value={customKeywordInput}
+                onChange={e => setCustomKeywordInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && customKeywordInput.trim() && draftSelected.size < 5) {
+                    setDraftSelected(prev => new Set([...prev, customKeywordInput.trim()]))
+                    setCustomKeywordInput('')
+                  }
+                }}
+                placeholder="Add your own keyword..."
+                style={{
+                  flex: 1, background: 'transparent',
+                  border: 'none', borderBottom: '1px solid rgba(167,139,250,.3)',
+                  padding: '8px 0', color: 'var(--text-primary)',
+                  fontFamily: 'var(--font-ui)', fontSize: 14, fontWeight: 300,
+                  outline: 'none'
+                }}
+                onFocus={e => e.target.style.borderBottomColor = 'var(--accent-soft)'}
+                onBlur={e => e.target.style.borderBottomColor = 'rgba(167,139,250,.3)'}
+              />
+              {customKeywordInput.trim() && (
+                <button
+                  onClick={() => {
+                    if (draftSelected.size < 5) {
+                      setDraftSelected(prev => new Set([...prev, customKeywordInput.trim()]))
+                      setCustomKeywordInput('')
+                    }
+                  }}
+                  style={{
+                    background: 'none', border: 'none',
+                    color: 'var(--text-accent)', fontSize: 14,
+                    cursor: 'pointer', fontFamily: 'var(--font-ui)', padding: '4px'
+                  }}
+                >Add</button>
+              )}
             </div>
             <PipProgress total={5} filled={kwCount} text={kwCountText} textReady={kwReady} />
             <SaveRow onSave={saveKeywords} onCancel={cancel} disabled={!kwReady} />

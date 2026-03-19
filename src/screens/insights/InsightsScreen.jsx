@@ -46,26 +46,23 @@ function ActivityRow({ item, isLast, dimmed = false }) {
   )
 }
 
-function generatePatternSentence(moments, keywords, activityData) {
-  if (!moments.length || !activityData.length) return null
-
-  // Keyword vs non-keyword energy difference
-  if (keywords.length > 0) {
-    const withKeyword = moments.filter(m => m.activity && getMatchingKeywords(m.activity, keywords).length > 0)
-    const withoutKeyword = moments.filter(m => m.activity && getMatchingKeywords(m.activity, keywords).length === 0)
-    if (withKeyword.length >= 2 && withoutKeyword.length >= 2) {
-      const avgWith = withKeyword.reduce((s, m) => s + m.energy, 0) / withKeyword.length
-      const avgWithout = withoutKeyword.reduce((s, m) => s + m.energy, 0) / withoutKeyword.length
-      const diff = Math.round(Math.abs(avgWith - avgWithout) * 10) / 10
-      if (diff >= 1) {
-        if (avgWith > avgWithout) {
-          return `Activities matching your direction give you ${diff} more points of energy on average.`
-        } else {
-          return `Activities outside your direction give you ${diff} more points of energy — worth reflecting on.`
-        }
-      }
-    }
+function generateDirectionSentence(moments, keywords) {
+  if (!moments.length || !keywords.length) return null
+  const aligned = moments.filter(m => m.tags?.some(t => keywords.some(k => k.toLowerCase() === t.toLowerCase())))
+  const other = moments.filter(m => !m.tags?.some(t => keywords.some(k => k.toLowerCase() === t.toLowerCase())))
+  if (aligned.length < 2 || other.length < 2) return null
+  const avgWith = aligned.reduce((s, m) => s + m.energy, 0) / aligned.length
+  const avgWithout = other.reduce((s, m) => s + m.energy, 0) / other.length
+  const diff = Math.round(Math.abs(avgWith - avgWithout) * 10) / 10
+  if (diff < 1) return null
+  if (avgWith > avgWithout) {
+    return `Direction-tagged moments give you ${diff} more energy on average than untagged ones.`
   }
+  return null
+}
+
+function generateActivitySentence(moments, activityData) {
+  if (!moments.length || !activityData.length) return null
 
   // Top vs bottom activity comparison
   if (activityData.length >= 2) {
@@ -183,9 +180,14 @@ export default function InsightsScreen() {
   }, [moments, keywords, hasData])
 
 
-  const patternSentence = useMemo(() =>
-    generatePatternSentence(moments, keywords, activityData),
-    [moments, keywords, activityData]
+  const directionSentence = useMemo(() =>
+    generateDirectionSentence(moments, keywords),
+    [moments, keywords]
+  )
+
+  const activitySentence = useMemo(() =>
+    generateActivitySentence(moments, activityData),
+    [moments, activityData]
   )
 
   const top5 = activityData.slice(0, 5)
@@ -319,10 +321,9 @@ export default function InsightsScreen() {
               </div>
             )}
 
-            {/* Pattern sentence */}
-            {patternSentence && (
+            {directionSentence && (
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '14px 0 0', paddingTop: 14, borderTop: '1px solid rgba(255,255,255,.06)', lineHeight: 1.6 }}>
-                {patternSentence}
+                {directionSentence}
               </p>
             )}
           </Card>
@@ -387,6 +388,11 @@ export default function InsightsScreen() {
                   ))}
                 </Card>
               </>
+            )}
+            {activitySentence && (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '16px 0 0', lineHeight: 1.6 }}>
+                {activitySentence}
+              </p>
             )}
           </>
         )}
