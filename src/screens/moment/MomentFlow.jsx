@@ -189,12 +189,11 @@ function EnergyScreen({ value, onChange, onNext }) {
   return (
     <Screen>
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '20px 16px 4px', flexShrink: 0
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        padding: '28px 16px 8px', flexShrink: 0, gap: 6
       }}>
-        <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>{timeStr}</span>
         <KairosLogo size={20} />
-        <div style={{ width: 40 }} />
+        <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>{timeStr}</span>
       </div>
 
       <div style={{ padding: '12px 24px 4px', flexShrink: 0 }}>
