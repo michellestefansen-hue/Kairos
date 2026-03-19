@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell } from 'recharts'
 import useKairosStore from '../../store/useKairosStore'
 import { Card, SectionLabel } from '../../components/ui'
@@ -107,38 +107,28 @@ export default function InsightsScreen() {
 
   const hasData = moments.length >= 3
 
-  // Direction alignment: compare avg energy for aligned vs other activities
+  const isAligned = (m) => m.tags?.some(t => keywords.some(k => k.toLowerCase() === t.toLowerCase()))
+
+  // Per-keyword breakdown using logged tags
   const directionStats = useMemo(() => {
     if (!hasData || !keywords.length) return null
-    const withActivity = moments.filter(m => m.activity?.trim())
-    if (!withActivity.length) return null
-    const aligned = withActivity.filter(m => getMatchingKeywords(m.activity, keywords).length > 0)
-    const other = withActivity.filter(m => getMatchingKeywords(m.activity, keywords).length === 0)
-    if (!aligned.length) return null
-    const avgAligned = Math.round((aligned.reduce((s, m) => s + m.energy, 0) / aligned.length) * 10) / 10
-    const avgOther = other.length
-      ? Math.round((other.reduce((s, m) => s + m.energy, 0) / other.length) * 10) / 10
-      : null
-    const keywordCounts = {}
-    aligned.forEach(m => {
-      getMatchingKeywords(m.activity, keywords).forEach(k => {
-        keywordCounts[k] = (keywordCounts[k] || 0) + 1
-      })
+    const keywordStats = keywords.map(keyword => {
+      const matching = moments.filter(m =>
+        m.tags?.some(t => t.toLowerCase() === keyword.toLowerCase())
+      )
+      if (!matching.length) return { keyword, avg: null, count: 0 }
+      const avg = Math.round((matching.reduce((s, m) => s + m.energy, 0) / matching.length) * 10) / 10
+      return { keyword, avg, count: matching.length }
     })
-    const topKeywords = Object.entries(keywordCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
-      .map(([k]) => k)
-    return { avgAligned, avgOther, topKeywords }
+    const anyLogged = keywordStats.some(s => s.count > 0)
+    return anyLogged ? { keywordStats } : null
   }, [moments, keywords, hasData])
 
-  // Gap indicator: % of all moments aligned with direction
+  // Gap indicator: % of moments that have at least one direction tag
   const gapPct = useMemo(() => {
     if (!hasData || !keywords.length) return null
-    const withActivity = moments.filter(m => m.activity?.trim())
-    if (!withActivity.length) return null
-    const aligned = withActivity.filter(m => getMatchingKeywords(m.activity, keywords).length > 0)
-    return Math.round((aligned.length / withActivity.length) * 100)
+    const aligned = moments.filter(isAligned)
+    return Math.round((aligned.length / moments.length) * 100)
   }, [moments, keywords, hasData])
 
   // Energy by hour
@@ -260,35 +250,37 @@ export default function InsightsScreen() {
           <SectionLabel>Direction alignment</SectionLabel>
           <Card>
             {directionStats ? (
-              <>
-                <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
-                  <div style={{ flex: 1, background: 'rgba(139,92,246,.12)', borderRadius: 10, padding: '12px 14px' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>In direction</div>
-                    <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--accent-soft)', lineHeight: 1 }}>{directionStats.avgAligned}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>avg energy</div>
+              <div style={{ marginBottom: 16 }}>
+                {directionStats.keywordStats.map(({ keyword, avg, count }, i) => (
+                  <div key={keyword} style={{
+                    display: 'flex', alignItems: 'center',
+                    padding: '10px 0',
+                    borderBottom: i < directionStats.keywordStats.length - 1 ? '1px solid rgba(255,255,255,.06)' : 'none'
+                  }}>
+                    <span style={{ flex: 1, fontSize: 14, color: avg ? 'var(--text-secondary)' : 'var(--text-faint)' }}>
+                      {keyword}
+                    </span>
+                    {avg ? (
+                      <>
+                        <div style={{ width: 72, height: 4, background: 'rgba(255,255,255,.08)', borderRadius: 4, marginRight: 10 }}>
+                          <div style={{
+                            height: '100%', borderRadius: 4,
+                            width: `${(avg / 10) * 100}%`,
+                            background: 'linear-gradient(90deg, var(--accent), var(--accent-soft))'
+                          }} />
+                        </div>
+                        <span style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 28, textAlign: 'right' }}>{avg}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 10, minWidth: 28, textAlign: 'right' }}>{count}×</span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--text-faint)', fontStyle: 'italic' }}>not logged yet</span>
+                    )}
                   </div>
-                  {directionStats.avgOther !== null && (
-                    <div style={{ flex: 1, background: 'rgba(255,255,255,.04)', borderRadius: 10, padding: '12px 14px' }}>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Outside</div>
-                      <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--text-secondary)', lineHeight: 1 }}>{directionStats.avgOther}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3 }}>avg energy</div>
-                    </div>
-                  )}
-                </div>
-                {directionStats.topKeywords.length > 0 && (
-                  <p style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6, margin: '0 0 16px' }}>
-                    {directionStats.topKeywords.map((k, i) => (
-                      <React.Fragment key={k}>
-                        <span style={{ color: 'var(--text-accent)', fontWeight: 500 }}>{k}</span>
-                        {i < directionStats.topKeywords.length - 1 ? ' and ' : ''}
-                      </React.Fragment>
-                    ))} show up most in your high-energy moments.
-                  </p>
-                )}
-              </>
+                ))}
+              </div>
             ) : (
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.6 }}>
-                Log activities to see how your energy compares inside and outside your direction.
+                Tag moments with your direction keywords to see alignment here.
               </p>
             )}
 
