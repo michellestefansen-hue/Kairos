@@ -87,7 +87,7 @@ function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, savin
     }
   }
 
-  const customTags = [...selected].filter(t => !suggestions.includes(t))
+  const customTags = [...selected].filter(t => !directionKeywords.includes(t) && !otherSuggestions.includes(t))
 
   return (
     <Screen>
