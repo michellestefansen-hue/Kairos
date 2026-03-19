@@ -183,32 +183,14 @@ export default function InsightsScreen() {
       .sort((a, b) => b.avg - a.avg)
   }, [moments, keywords, hasData])
 
-  // Group activities by keyword
-  const activitiesByKeyword = useMemo(() => {
-    if (!keywords.length || !activityData.length) return null
-    const groups = {}
-    keywords.forEach(k => { groups[k] = [] })
-    const unmatched = []
-    activityData.forEach(item => {
-      if (item.matchedKeywords.length > 0) {
-        item.matchedKeywords.forEach(k => { if (groups[k]) groups[k].push(item) })
-      } else {
-        unmatched.push(item)
-      }
-    })
-    const result = Object.entries(groups)
-      .filter(([, acts]) => acts.length > 0)
-      .map(([keyword, activities]) => ({ keyword, activities }))
-    return { groups: result, unmatched }
-  }, [activityData, keywords])
 
   const patternSentence = useMemo(() =>
     generatePatternSentence(moments, keywords, activityData),
     [moments, keywords, activityData]
   )
 
-  const top3 = activityData.slice(0, 3)
-  const bottom3 = activityData.slice(-3).reverse()
+  const top5 = activityData.slice(0, 5)
+  const bottom5 = activityData.length > 5 ? activityData.slice(-5).reverse() : []
 
   const handleAlign = (choice) => {
     setAlignChoice(choice)
@@ -370,52 +352,36 @@ export default function InsightsScreen() {
         </Card>
       </div>
 
-      {/* Energy by activity — grouped by keyword when available */}
+      {/* Energy by activity */}
       <div style={{ padding: '0 24px', marginBottom: 28 }}>
         <SectionLabel>Energy by activity</SectionLabel>
         {activityData.length === 0 ? (
           <Card>
             <EmptyState message="Log activities to see patterns here." />
           </Card>
-        ) : activitiesByKeyword && (activitiesByKeyword.groups.length > 0 || activitiesByKeyword.unmatched.length > 0) ? (
+        ) : (
           <>
-            {activitiesByKeyword.groups.map(({ keyword, activities }) => (
-              <div key={keyword} style={{ marginBottom: 12 }}>
-                <div style={{
-                  fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
-                  color: 'var(--text-accent)', marginBottom: 6, paddingLeft: 2
-                }}>
-                  {keyword}
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-accent)', marginBottom: 6, paddingLeft: 2 }}>
+              Most energizing
+            </div>
+            <Card style={{ padding: '4px 20px', marginBottom: 12 }}>
+              {top5.map((item, i) => (
+                <ActivityRow key={item.activity} item={item} isLast={i === top5.length - 1} />
+              ))}
+            </Card>
+            {bottom5.length > 0 && (
+              <>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6, paddingLeft: 2 }}>
+                  Most draining
                 </div>
                 <Card style={{ padding: '4px 20px' }}>
-                  {activities.map((item, i) => (
-                    <ActivityRow key={item.activity} item={item} isLast={i === activities.length - 1} />
+                  {bottom5.map((item, i) => (
+                    <ActivityRow key={item.activity} item={item} isLast={i === bottom5.length - 1} dimmed />
                   ))}
                 </Card>
-              </div>
-            ))}
-            {activitiesByKeyword.unmatched.length > 0 && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{
-                  fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
-                  color: 'var(--text-muted)', marginBottom: 6, paddingLeft: 2
-                }}>
-                  Other activities
-                </div>
-                <Card style={{ padding: '4px 20px' }}>
-                  {activitiesByKeyword.unmatched.map((item, i) => (
-                    <ActivityRow key={item.activity} item={item} isLast={i === activitiesByKeyword.unmatched.length - 1} dimmed />
-                  ))}
-                </Card>
-              </div>
+              </>
             )}
           </>
-        ) : (
-          <Card>
-            {[...top3, ...bottom3].map((item, i) => (
-              <ActivityRow key={item.activity} item={item} isLast={i === top3.length + bottom3.length - 1} dimmed={i >= top3.length} />
-            ))}
-          </Card>
         )}
       </div>
 
