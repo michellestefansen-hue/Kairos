@@ -11,26 +11,9 @@ const DEFAULT_TAGS = [
 ]
 
 // ── SCREEN 1: ACTIVITY ────────────────────────────────────────
-function ActivityChipGroup({ label, activities, onSelect }) {
-  if (!activities.length) return null
-  return (
-    <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)', letterSpacing: '.1em', textTransform: 'uppercase', padding: '0 24px', marginBottom: 10 }}>
-        {label}
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 24px' }}>
-        {activities.map(a => (
-          <Chip key={a} label={a} onClick={() => onSelect(a)} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function ActivityScreen({ value, onChange, onNext }) {
-  const getTopBottomActivities = useKairosStore(s => s.getTopBottomActivities)
-  const { top, bottom } = getTopBottomActivities()
-  const hasData = top.length > 0
+  const getSortedActivities = useKairosStore(s => s.getSortedActivities)
+  const activities = getSortedActivities()
 
   return (
     <Screen>
@@ -58,14 +41,22 @@ function ActivityScreen({ value, onChange, onNext }) {
         />
       </div>
 
-      {hasData && (
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          <ActivityChipGroup label="Most energizing" activities={top} onSelect={onChange} />
-          <ActivityChipGroup label="Most draining" activities={bottom} onSelect={onChange} />
-        </div>
+      {activities.length > 0 && (
+        <>
+          <div style={{ fontSize: 11, color: 'var(--text-faint)', letterSpacing: '.1em', textTransform: 'uppercase', padding: '0 24px', marginBottom: 10 }}>
+            Your activities
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 8px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {activities.map(a => (
+                <Chip key={a} label={a} onClick={() => onChange(a)} />
+              ))}
+            </div>
+          </div>
+        </>
       )}
 
-      {!hasData && <div style={{ flex: 1 }} />}
+      {activities.length === 0 && <div style={{ flex: 1 }} />}
       <BtnArea>
         <Btn onClick={onNext}>Next</Btn>
       </BtnArea>
@@ -83,9 +74,8 @@ function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, savin
   const recentSet = new Set(recentTags.map(t => t.toLowerCase()))
   const directionSet = new Set(directionKeywords.map(t => t.toLowerCase()))
   const allSeen = new Set([...recentSet, ...directionSet])
-  const suggestions = [
-    ...recentTags,
-    ...directionKeywords.filter(t => !recentSet.has(t.toLowerCase())),
+  const otherSuggestions = [
+    ...recentTags.filter(t => !directionSet.has(t.toLowerCase())),
     ...DEFAULT_TAGS.filter(t => !allSeen.has(t.toLowerCase()))
   ]
 
@@ -127,8 +117,18 @@ function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, savin
           </div>
         ) : (
           <>
+            {directionKeywords.length > 0 && (
+              <>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                  {directionKeywords.map(tag => (
+                    <Chip key={tag} label={tag} selected={selected.has(tag)} isYours onClick={() => onToggle(tag)} />
+                  ))}
+                </div>
+                <div style={{ height: 1, background: 'rgba(167,139,250,.12)', marginBottom: 16 }} />
+              </>
+            )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-              {suggestions.map(tag => (
+              {otherSuggestions.map(tag => (
                 <Chip
                   key={tag}
                   label={tag}

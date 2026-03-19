@@ -88,7 +88,7 @@ const useKairosStore = create(
         return recent
       },
 
-      getTopBottomActivities: () => {
+      getSortedActivities: () => {
         const { moments } = get()
         const byAct = {}
         moments.forEach(m => {
@@ -98,13 +98,11 @@ const useKairosStore = create(
           byAct[a].sum += m.energy
           byAct[a].count++
         })
-        const ranked = Object.entries(byAct)
+        return Object.entries(byAct)
           .map(([activity, { sum, count }]) => ({ activity, avg: sum / count }))
           .sort((a, b) => b.avg - a.avg)
-        if (ranked.length <= 5) return { top: ranked.map(r => r.activity), bottom: [] }
-        const top = ranked.slice(0, 5).map(r => r.activity)
-        const bottom = ranked.slice(-5).reverse().map(r => r.activity)
-        return { top, bottom }
+          .slice(0, 10)
+          .map(r => r.activity)
       },
 
       exportData: () => {
