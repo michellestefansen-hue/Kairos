@@ -116,9 +116,18 @@ export default function InsightsScreen() {
       const matching = moments.filter(m =>
         m.tags?.some(t => t.toLowerCase() === keyword.toLowerCase())
       )
-      if (!matching.length) return { keyword, avg: null, count: 0 }
+      if (!matching.length) return { keyword, avg: null, count: 0, topActivities: [] }
       const avg = Math.round((matching.reduce((s, m) => s + m.energy, 0) / matching.length) * 10) / 10
-      return { keyword, avg, count: matching.length }
+      const activityCounts = {}
+      matching.forEach(m => {
+        const a = m.activity?.trim()
+        if (a) activityCounts[a] = (activityCounts[a] || 0) + 1
+      })
+      const topActivities = Object.entries(activityCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([a]) => a)
+      return { keyword, avg, count: matching.length, topActivities }
     })
     const anyLogged = keywordStats.some(s => s.count > 0)
     return anyLogged ? { keywordStats } : null
@@ -251,29 +260,35 @@ export default function InsightsScreen() {
           <Card>
             {directionStats ? (
               <div style={{ marginBottom: 16 }}>
-                {directionStats.keywordStats.map(({ keyword, avg, count }, i) => (
+                {directionStats.keywordStats.map(({ keyword, avg, count, topActivities }, i) => (
                   <div key={keyword} style={{
-                    display: 'flex', alignItems: 'center',
                     padding: '10px 0',
                     borderBottom: i < directionStats.keywordStats.length - 1 ? '1px solid rgba(255,255,255,.06)' : 'none'
                   }}>
-                    <span style={{ flex: 1, fontSize: 14, color: avg ? 'var(--text-secondary)' : 'var(--text-faint)' }}>
-                      {keyword}
-                    </span>
-                    {avg ? (
-                      <>
-                        <div style={{ width: 72, height: 4, background: 'rgba(255,255,255,.08)', borderRadius: 4, marginRight: 10 }}>
-                          <div style={{
-                            height: '100%', borderRadius: 4,
-                            width: `${(avg / 10) * 100}%`,
-                            background: 'linear-gradient(90deg, var(--accent), var(--accent-soft))'
-                          }} />
-                        </div>
-                        <span style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 28, textAlign: 'right' }}>{avg}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 10, minWidth: 28, textAlign: 'right' }}>{count}×</span>
-                      </>
-                    ) : (
-                      <span style={{ fontSize: 12, color: 'var(--text-faint)', fontStyle: 'italic' }}>not logged yet</span>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <span style={{ flex: 1, fontSize: 14, color: avg ? 'var(--text-secondary)' : 'var(--text-faint)' }}>
+                        {keyword}
+                      </span>
+                      {avg ? (
+                        <>
+                          <div style={{ width: 72, height: 4, background: 'rgba(255,255,255,.08)', borderRadius: 4, marginRight: 10 }}>
+                            <div style={{
+                              height: '100%', borderRadius: 4,
+                              width: `${(avg / 10) * 100}%`,
+                              background: 'linear-gradient(90deg, var(--accent), var(--accent-soft))'
+                            }} />
+                          </div>
+                          <span style={{ fontSize: 13, color: 'var(--text-muted)', minWidth: 28, textAlign: 'right' }}>{avg}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 10, minWidth: 28, textAlign: 'right' }}>{count}×</span>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: 12, color: 'var(--text-faint)', fontStyle: 'italic' }}>not logged yet</span>
+                      )}
+                    </div>
+                    {topActivities.length > 0 && (
+                      <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '5px 0 0', lineHeight: 1.5 }}>
+                        {topActivities.join(' · ')}
+                      </p>
                     )}
                   </div>
                 ))}
