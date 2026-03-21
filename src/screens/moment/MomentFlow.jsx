@@ -92,31 +92,73 @@ function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, savin
 
   return (
     <Screen>
-      <ScreenNav onBack={onBack} />
-      <div style={{ padding: '8px 24px 4px', flexShrink: 0 }}>
-        <h1 style={{ fontSize: 19, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>
-          How does it feel?
-        </h1>
-        <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>Optional — pick all that apply.</p>
-      </div>
+      <style>{`
+        @keyframes circleIn {
+          0%   { transform: scale(0); opacity: 0; }
+          65%  { transform: scale(1.18); opacity: 1; }
+          100% { transform: scale(1); }
+        }
+        @keyframes checkDraw {
+          to { stroke-dashoffset: 0; }
+        }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes glowRing {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(109,40,217,0); }
+          50%       { box-shadow: 0 0 0 10px rgba(109,40,217,.12); }
+        }
+      `}</style>
+      <ScreenNav onBack={saved ? undefined : onBack} />
+      {!saved && (
+        <div style={{ padding: '8px 24px 4px', flexShrink: 0 }}>
+          <h1 style={{ fontSize: 19, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 4 }}>
+            How does it feel?
+          </h1>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>Optional — pick all that apply.</p>
+        </div>
+      )}
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 8px' }}>
         {saved ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 24px', animation: 'screenIn .3s ease' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 32px' }}>
             <div style={{
-              width: 48, height: 48, borderRadius: '50%',
-              background: 'rgba(109,40,217,.2)',
-              border: '1.5px solid rgba(167,139,250,.4)',
+              width: 56, height: 56, borderRadius: '50%',
+              background: 'rgba(109,40,217,.25)',
+              border: '1.5px solid rgba(167,139,250,.5)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 12
+              marginBottom: 18,
+              animation: 'circleIn .5s cubic-bezier(.34,1.56,.64,1) forwards, glowRing 2s ease-in-out .6s infinite'
             }}>
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <polyline points="4,10 8,14 16,6" stroke="var(--accent-soft)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+                <polyline
+                  points="4,10 8,14 16,6"
+                  stroke="var(--accent-soft)"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="30"
+                  strokeDashoffset="30"
+                  style={{ animation: 'checkDraw .35s ease forwards .28s' }}
+                />
               </svg>
             </div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: message ? 20 : 0 }}>Moment saved.</div>
+            <div style={{
+              color: 'var(--text-secondary)', fontSize: 15,
+              marginBottom: message ? 20 : 0,
+              opacity: 0,
+              animation: 'fadeUp .4s ease forwards .4s'
+            }}>
+              Moment saved.
+            </div>
             {message && (
-              <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.7, margin: 0 }}>
+              <p style={{
+                fontSize: 14, fontWeight: 300, color: 'var(--text-muted)',
+                textAlign: 'center', lineHeight: 1.75, margin: 0,
+                opacity: 0,
+                animation: 'fadeUp .5s ease forwards .65s'
+              }}>
                 {message}
               </p>
             )}
