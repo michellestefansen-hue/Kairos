@@ -3,11 +3,12 @@ import useKairosStore from '../../store/useKairosStore'
 import { useNotifications } from '../../hooks/useNotifications'
 import EnergyRing from '../../components/EnergyRing'
 import { Screen, ScreenNav, BtnArea, Btn, KairosLogo, Chip } from '../../components/ui'
+import { getPostMomentMessage } from '../../data/messages'
 
 const DEFAULT_TAGS = [
   'Focused', 'Creative', 'Energized', 'Inspired', 'Present', 'Calm', 'In flow', 'Productive',
   'Drained', 'Scattered', 'Tired', 'Stressed', 'Anxious', 'Bored', 'Distracted', 'Overwhelmed',
-  'Connected', 'Motivated', 'Confident', 'Grateful', 'Curious', 'Restless', 'Content', 'Playful'
+  'Connected', 'Lonely', 'Disconnected', 'Motivated', 'Confident', 'Grateful', 'Curious', 'Restless', 'Content', 'Playful'
 ]
 
 // ── SCREEN 1: ACTIVITY ────────────────────────────────────────
@@ -65,7 +66,7 @@ function ActivityScreen({ value, onChange, onNext }) {
 }
 
 // ── SCREEN 3: KEYWORDS ───────────────────────────────────────
-function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, saving, saved }) {
+function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, saving, saved, message }) {
   const getRecentTags = useKairosStore(s => s.getRecentTags)
   const directionKeywords = useKairosStore(s => s.keywords)
   const recentTags = getRecentTags()
@@ -101,7 +102,7 @@ function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, savin
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 24px 8px' }}>
         {saved ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', animation: 'screenIn .3s ease' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 24px', animation: 'screenIn .3s ease' }}>
             <div style={{
               width: 48, height: 48, borderRadius: '50%',
               background: 'rgba(109,40,217,.2)',
@@ -113,7 +114,12 @@ function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, savin
                 <polyline points="4,10 8,14 16,6" stroke="var(--accent-soft)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 15 }}>Moment saved.</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 15, marginBottom: message ? 20 : 0 }}>Moment saved.</div>
+            {message && (
+              <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.7, margin: 0 }}>
+                {message}
+              </p>
+            )}
           </div>
         ) : (
           <>
@@ -221,6 +227,7 @@ export default function MomentFlow({ onClose }) {
   const [energy, setEnergy] = useState(5)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [message, setMessage] = useState(null)
 
   const addMoment = useKairosStore(s => s.addMoment)
   const { notifyMomentLogged } = useNotifications()
@@ -242,13 +249,14 @@ export default function MomentFlow({ onClose }) {
     setSaving(true)
     addMoment({ energy, activity: activity.trim(), tags: [...tags] })
     notifyMomentLogged()
+    setMessage(getPostMomentMessage(energy, [...tags]))
     setSaving(false)
     setSaved(true)
-    setTimeout(() => onClose(), 1400)
+    setTimeout(() => onClose(), 2500)
   }
 
   if (step === 0) return <EnergyScreen value={energy} onChange={setEnergy} onNext={() => setStep(1)} />
   if (step === 1) return <ActivityScreen value={activity} onChange={setActivity} onNext={() => setStep(2)} onBack={() => setStep(0)} />
-  if (step === 2) return <KeywordsScreen selected={tags} onToggle={toggleTag} onAddCustom={addCustomTag} onSave={handleSave} onBack={() => setStep(1)} saving={saving} saved={saved} />
+  if (step === 2) return <KeywordsScreen selected={tags} onToggle={toggleTag} onAddCustom={addCustomTag} onSave={handleSave} onBack={() => setStep(1)} saving={saving} saved={saved} message={message} />
   return null
 }
