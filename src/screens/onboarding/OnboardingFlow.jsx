@@ -35,8 +35,8 @@ function IntroSlide({ slide, onNext }) {
           <circle cx="18" cy="18" r="2.5" fill="#A78BFA"/>
         </svg>
       ),
-      title: 'Understand your energy patterns.',
-      sub: 'Track when you feel most energized throughout the day.'
+      title: 'You probably don\'t know when you\'re at your best.',
+      sub: 'Not when you assume. When you actually are. Kairos helps you find out.'
     },
     {
       icon: (
@@ -47,8 +47,8 @@ function IntroSlide({ slide, onNext }) {
           <circle cx="28" cy="8" r="1.5" fill="rgba(167,139,250,.5)"/>
         </svg>
       ),
-      title: 'Discover what energizes you.',
-      sub: 'Small check-ins. Clear patterns.'
+      title: 'A few honest check-ins each day.',
+      sub: 'How much energy do you have? What are you doing? That\'s it. After a few days, real patterns emerge.'
     },
     {
       icon: (
@@ -58,8 +58,8 @@ function IntroSlide({ slide, onNext }) {
           <rect x="24" y="8" width="4" height="22" rx="1" fill="#A78BFA"/>
         </svg>
       ),
-      title: 'Redesign your days around energy.',
-      sub: 'Optimize your schedule based on real data — not assumptions.'
+      title: 'Then you start living differently.',
+      sub: 'Not based on what you think you should do — but on what actually works for you.'
     }
   ]
   const s = slides[slide]
@@ -199,14 +199,15 @@ function KeywordsScreen({ onNext, onBack }) {
     <Screen>
       <ScreenNav onBack={onBack} />
       <div style={{ padding: '8px 24px 0', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>Select 3–5 keywords.</h1>
-        <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-secondary)', marginBottom: 20 }}>These will guide your weekly reflection.</p>
+        <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>Choose what Kairos watches over.</h1>
+        <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-secondary)', marginBottom: 4 }}>Pick 3–5 words that represent what you want to protect or grow.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>These connect your daily energy to what actually matters to you.</p>
 
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
           {yourWords.length > 0 && (
             <>
               <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 10 }}>
-                From your sentence
+                From what you wrote
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
                 {yourWords.map(w => (
@@ -217,7 +218,7 @@ function KeywordsScreen({ onNext, onBack }) {
             </>
           )}
           <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 10 }}>
-            Other suggestions
+            Other areas to consider
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {extras.map(w => (
@@ -243,9 +244,12 @@ function FrequencyScreen({ onNext, onBack }) {
     <Screen>
       <ScreenNav onBack={onBack} />
       <div style={{ padding: '8px 24px 0', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 24 }}>
-          How often should we check in?
+        <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>
+          How many times a day?
         </h1>
+        <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-secondary)', marginBottom: 24 }}>
+          4 check-ins takes less than 2 minutes a day. More moments means clearer patterns, faster.
+        </p>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 40 }}>
           {[3, 4, 5, 6].map(n => (
@@ -279,7 +283,7 @@ function FrequencyScreen({ onNext, onBack }) {
           sub="recommended"
         />
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 12 }}>
-          More check-ins create clearer patterns.
+          You can always adjust this later.
         </p>
         <div style={{ flex: 1 }} />
       </div>
@@ -320,11 +324,11 @@ function NotificationsScreen({ onNext, onBack }) {
           </svg>
         </div>
 
-        <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 12 }}>Enable reminders</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 12 }}>Let Kairos find you.</h1>
         <p style={{ fontSize: 15, fontWeight: 300, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 4 }}>
-          To receive Kairos moments during the day, notifications must be enabled.
+          Without reminders it's easy to forget. With them, Kairos gently taps you at the right moments during the day.
         </p>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Never during quiet hours.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Never intrusive. Never during quiet hours.</p>
 
         {status === 'granted' && (
           <div style={{ marginTop: 20, width: '100%' }}>
