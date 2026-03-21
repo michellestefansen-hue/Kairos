@@ -9,7 +9,7 @@ import {
 
 // ── STOP WORDS ───────────────────────────────────────────────
 const STOP = new Set(['i','me','my','myself','we','our','ours','you','your','yourself','he','him','his','she','her','hers','it','its','they','them','their','what','which','who','this','that','these','those','am','is','are','was','were','be','been','being','have','has','had','do','does','did','a','an','the','and','but','if','or','because','as','until','while','of','at','by','for','with','about','into','through','during','before','after','to','from','up','down','in','out','on','off','over','under','again','then','here','there','when','where','why','how','all','both','each','more','most','other','some','no','nor','not','only','own','same','so','than','too','very','can','will','just','should','now','want','make','also','stay','get','feel','know','able','always','never','still','even','every','many','much','things','something','life','day','year','time','people','person','way','truly','really','deeply'])
-const FALLBACK = ['Focus','Purpose','Balance','Growth','Presence','Depth','Clarity','Courage','Impact','Connection','Rest','Learning','Creativity','Health','Calm','Leadership']
+const FALLBACK = ['Focus','Purpose','Balance','Growth','Presence','Depth','Clarity','Courage','Impact','Connection','Rest','Learning','Creativity','Health','Calm','Leadership','Vitality','Joy','Freedom','Confidence','Belonging','Wonder','Resilience','Flow']
 
 function extractKeywords(text) {
   const tokens = text.toLowerCase()
@@ -132,12 +132,12 @@ function DirectionScreen({ onNext, onBack }) {
         <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-secondary)', marginBottom: 4 }}>
           What would you want it to say?
         </p>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Think beyond work.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Write about how you feel and what you value — not what you want to own or achieve.</p>
 
         <textarea
           value={text}
           onChange={handleChange}
-          placeholder="I create meaningful work and stay present for my family."
+          placeholder="I feel alive when I'm creating, deeply connected to the people I love, and free to grow."
           rows={4}
           style={{
             width: '100%', background: 'rgba(255,255,255,.06)',
@@ -200,8 +200,8 @@ function KeywordsScreen({ onNext, onBack }) {
       <ScreenNav onBack={onBack} />
       <div style={{ padding: '8px 24px 0', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>Choose what Kairos watches over.</h1>
-        <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-secondary)', marginBottom: 4 }}>Pick 3–5 words that represent what you want to protect or grow.</p>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>These connect your daily energy to what actually matters to you.</p>
+        <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-secondary)', marginBottom: 4 }}>Pick 3–5 feelings or inner states you want more of in your life.</p>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Think states of being — not goals or outcomes.</p>
 
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
           {yourWords.length > 0 && (
