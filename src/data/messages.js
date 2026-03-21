@@ -1,6 +1,6 @@
 const CLUSTERS = [
   {
-    tags: ['focused', 'creative', 'in flow', 'inspired', 'energized', 'productive'],
+    tags: ['focused', 'creative', 'in flow', 'inspired', 'energized', 'productive', 'focus', 'creativity', 'learning', 'flow', 'aliveness', 'vitality', 'enthusiasm', 'growth', 'impact', 'courage', 'strength', 'clarity', 'purpose', 'motivated', 'confident', 'confidence', 'health', 'resilience'],
     messages: {
       high: [
         "Creative and fully charged — this combination doesn't happen by accident. Pay attention to what led here.",
@@ -17,7 +17,7 @@ const CLUSTERS = [
     }
   },
   {
-    tags: ['calm', 'present', 'content', 'grateful', 'curious'],
+    tags: ['calm', 'present', 'content', 'grateful', 'curious', 'presence', 'rest', 'gratitude', 'peace', 'acceptance', 'harmony', 'balance', 'openness', 'wonder', 'depth', 'meaning', 'freedom'],
     messages: {
       high: [
         "Alert, present, and at peace. This is one of the rarest states — notice what made it possible.",
@@ -34,7 +34,7 @@ const CLUSTERS = [
     }
   },
   {
-    tags: ['connected', 'playful', 'motivated', 'confident'],
+    tags: ['connected', 'playful', 'connection', 'belonging', 'playfulness', 'leadership'],
     messages: {
       high: [
         "The right people can change everything. Notice who was in the room when this happened.",
