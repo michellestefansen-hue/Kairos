@@ -66,7 +66,7 @@ function ActivityScreen({ value, onChange, onNext }) {
 }
 
 // ── SCREEN 3: KEYWORDS ───────────────────────────────────────
-function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, saving, saved, message }) {
+function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, saving, saved, message, onClose }) {
   const getRecentTags = useKairosStore(s => s.getRecentTags)
   const directionKeywords = useKairosStore(s => s.keywords)
   const recentTags = getRecentTags()
@@ -302,6 +302,6 @@ export default function MomentFlow({ onClose }) {
 
   if (step === 0) return <EnergyScreen value={energy} onChange={setEnergy} onNext={() => setStep(1)} />
   if (step === 1) return <ActivityScreen value={activity} onChange={setActivity} onNext={() => setStep(2)} onBack={() => setStep(0)} />
-  if (step === 2) return <KeywordsScreen selected={tags} onToggle={toggleTag} onAddCustom={addCustomTag} onSave={handleSave} onBack={() => setStep(1)} saving={saving} saved={saved} message={message} />
+  if (step === 2) return <KeywordsScreen selected={tags} onToggle={toggleTag} onAddCustom={addCustomTag} onSave={handleSave} onBack={() => setStep(1)} saving={saving} saved={saved} message={message} onClose={onClose} />
   return null
 }
