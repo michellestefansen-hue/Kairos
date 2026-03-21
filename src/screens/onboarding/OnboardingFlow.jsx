@@ -288,10 +288,11 @@ function FrequencyScreen({ onNext, onBack }) {
 
 // ── NOTIFICATIONS ────────────────────────────────────────────
 function NotificationsScreen({ onNext, onBack }) {
-  const [status, setStatus] = useState(null) // null | 'granted' | 'denied' | 'unsupported'
+  const [status, setStatus] = useState(null) // null | 'loading' | 'granted' | 'denied' | 'unsupported'
   const { requestPermission } = useNotifications()
 
   const handleEnable = async () => {
+    setStatus('loading')
     const result = await requestPermission()
     setStatus(result === 'granted' ? 'granted' : result === 'unsupported' ? 'unsupported' : 'denied')
   }
@@ -341,10 +342,10 @@ function NotificationsScreen({ onNext, onBack }) {
       </div>
 
       <BtnArea>
-        {!status && <Btn onClick={handleEnable}>Enable notifications</Btn>}
+        {(status === null || status === 'loading') && <Btn onClick={handleEnable} disabled={status === 'loading'}>{status === 'loading' ? 'Enabling...' : 'Enable notifications'}</Btn>}
         {status === 'granted' && <Btn onClick={onNext}>Continue to Kairos</Btn>}
         {(status === 'denied' || status === 'unsupported') && <Btn onClick={onNext}>Continue anyway</Btn>}
-        {!status && <Btn ghost onClick={onNext}>Maybe later</Btn>}
+        {status === null && <Btn ghost onClick={onNext}>Maybe later</Btn>}
       </BtnArea>
     </Screen>
   )

@@ -66,16 +66,27 @@ export function useNotifications() {
     lastScheduledDate, setLastScheduledDate
   } = useKairosStore()
 
-  const requestPermission = useCallback(async () => {
-    if (!window.OneSignal) return 'unsupported'
-    try {
-      await window.OneSignal.Notifications.requestPermission()
-      const granted = window.OneSignal.Notifications.permission
-      if (granted) setNotificationsGranted(true)
-      return granted ? 'granted' : 'denied'
-    } catch {
-      return 'denied'
-    }
+  const requestPermission = useCallback(() => {
+    return new Promise((resolve) => {
+      const attempt = async (OneSignal) => {
+        try {
+          await OneSignal.Notifications.requestPermission()
+          const granted = OneSignal.Notifications.permission
+          if (granted) setNotificationsGranted(true)
+          resolve(granted ? 'granted' : 'denied')
+        } catch {
+          resolve('denied')
+        }
+      }
+
+      if (window.OneSignal) {
+        attempt(window.OneSignal)
+      } else if (window.OneSignalDeferred) {
+        window.OneSignalDeferred.push(attempt)
+      } else {
+        resolve('unsupported')
+      }
+    })
   }, [setNotificationsGranted])
 
   const scheduleToday = useCallback(async () => {
