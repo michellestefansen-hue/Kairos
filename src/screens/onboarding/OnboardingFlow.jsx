@@ -9,7 +9,7 @@ import {
 
 // ── STOP WORDS ───────────────────────────────────────────────
 const STOP = new Set(['i','me','my','myself','we','our','ours','you','your','yourself','he','him','his','she','her','hers','it','its','they','them','their','what','which','who','this','that','these','those','am','is','are','was','were','be','been','being','have','has','had','do','does','did','a','an','the','and','but','if','or','because','as','until','while','of','at','by','for','with','about','into','through','during','before','after','to','from','up','down','in','out','on','off','over','under','again','then','here','there','when','where','why','how','all','both','each','more','most','other','some','no','nor','not','only','own','same','so','than','too','very','can','will','just','should','now','want','make','also','stay','get','feel','know','able','always','never','still','even','every','many','much','things','something','life','day','year','time','people','person','way','truly','really','deeply'])
-const FALLBACK = ['Focus','Purpose','Balance','Growth','Presence','Depth','Clarity','Courage','Impact','Connection','Rest','Learning','Creativity','Health','Calm','Leadership','Vitality','Joy','Freedom','Confidence','Belonging','Wonder','Resilience','Flow']
+const FALLBACK = ['Focus','Purpose','Balance','Growth','Presence','Depth','Clarity','Courage','Impact','Connection','Rest','Learning','Creativity','Health','Calm','Leadership','Vitality','Joy','Freedom','Confidence','Belonging','Wonder','Resilience','Flow','Gratitude','Meaning','Strength','Peace','Enthusiasm','Openness','Acceptance','Aliveness','Harmony','Playfulness']
 
 function extractKeywords(text) {
   const tokens = text.toLowerCase()
@@ -172,7 +172,7 @@ function KeywordsScreen({ onNext, onBack }) {
 
   const yourWords = extractKeywords(direction).slice(0, 8)
   const yourLower = new Set(yourWords.map(w => w.toLowerCase()))
-  const extras = FALLBACK.filter(w => !yourLower.has(w.toLowerCase())).slice(0, 8)
+  const keywords = FALLBACK.filter(w => !yourLower.has(w.toLowerCase()))
 
   const toggle = useCallback((word) => {
     setSelected(prev => {
@@ -201,27 +201,19 @@ function KeywordsScreen({ onNext, onBack }) {
       <div style={{ padding: '8px 24px 0', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         <h1 style={{ fontSize: 20, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 8 }}>Choose what Kairos watches over.</h1>
         <p style={{ fontSize: 14, fontWeight: 300, color: 'var(--text-secondary)', marginBottom: 4 }}>Pick 3–5 feelings or inner states you want more of in your life.</p>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>Think states of being — not goals or outcomes.</p>
+
+        {yourWords.length > 0 && (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
+            Your sentence suggests: <span style={{ color: 'var(--accent-soft)', fontWeight: 400 }}>{yourWords.join(' · ')}</span>
+          </p>
+        )}
 
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 }}>
-          {yourWords.length > 0 && (
-            <>
-              <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 10 }}>
-                From what you wrote
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
-                {yourWords.map(w => (
-                  <Chip key={w} label={w} isYours selected={selected.has(w)} onClick={() => toggle(w)} />
-                ))}
-              </div>
-              <div style={{ height: 1, background: 'rgba(167,139,250,.1)', marginBottom: 16 }} />
-            </>
-          )}
-          <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 10 }}>
-            Other areas to consider
+          <div style={{ fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--text-faint)', marginBottom: 12 }}>
+            Select your keywords
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {extras.map(w => (
+            {keywords.map(w => (
               <Chip key={w} label={w} selected={selected.has(w)} onClick={() => toggle(w)} />
             ))}
           </div>
