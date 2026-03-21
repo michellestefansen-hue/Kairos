@@ -131,7 +131,7 @@ function MainApp() {
       {/* Tab content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {activeTab === 'moment' && (
-          <MomentFlow onClose={() => {}} key="moment" />
+          <MomentFlow onClose={() => setActiveTab('insights')} key="moment" />
         )}
         {activeTab === 'insights' && <InsightsScreen />}
         {activeTab === 'settings' && <SettingsScreen />}
