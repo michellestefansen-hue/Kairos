@@ -223,7 +223,7 @@ function KeywordsScreen({ selected, onToggle, onAddCustom, onSave, onBack, savin
       </div>
 
       <BtnArea>
-        {!saved && <Btn onClick={onSave}>{saving ? 'Saving...' : 'Save moment'}</Btn>}
+        {saved ? <Btn onClick={onClose}>Done</Btn> : <Btn onClick={onSave}>{saving ? 'Saving...' : 'Save moment'}</Btn>}
       </BtnArea>
     </Screen>
   )
@@ -253,6 +253,10 @@ function EnergyScreen({ value, onChange, onNext }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <EnergyRing value={value} onChange={onChange} size={270} />
       </div>
+
+      <p style={{ fontSize: 13, fontWeight: 300, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6, padding: '0 32px 16px' }}>
+        Some activities feel energizing in the moment, but draining afterwards. Kairos captures both by measuring how you feel throughout the day.
+      </p>
 
       <BtnArea>
         <Btn onClick={onNext}>Next</Btn>
@@ -294,7 +298,6 @@ export default function MomentFlow({ onClose }) {
     setMessage(getPostMomentMessage(energy, [...tags]))
     setSaving(false)
     setSaved(true)
-    setTimeout(() => onClose(), 2500)
   }
 
   if (step === 0) return <EnergyScreen value={energy} onChange={setEnergy} onNext={() => setStep(1)} />
