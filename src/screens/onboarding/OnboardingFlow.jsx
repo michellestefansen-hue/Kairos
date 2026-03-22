@@ -286,6 +286,13 @@ function FrequencyScreen({ onNext, onBack }) {
   )
 }
 
+// ── PLATFORM DETECTION ───────────────────────────────────────
+const ua = navigator.userAgent
+const isIOS = /iphone|ipad|ipod/i.test(ua)
+const isChromeIOS = isIOS && /CriOS/i.test(ua)
+const isSafariIOS = isIOS && !isChromeIOS && /safari/i.test(ua)
+const isStandalone = window.navigator.standalone === true
+
 // ── NOTIFICATIONS ────────────────────────────────────────────
 function NotificationsScreen({ onNext, onBack }) {
   const [status, setStatus] = useState(null) // null | 'loading' | 'granted' | 'blocked' | 'failed'
@@ -297,10 +304,82 @@ function NotificationsScreen({ onNext, onBack }) {
     if (result === 'granted') {
       setStatus('granted')
     } else if ('Notification' in window && Notification.permission === 'denied') {
-      setStatus('blocked') // user explicitly denied — needs manual unblock
+      setStatus('blocked')
     } else {
-      setStatus('failed') // something went wrong but not explicitly blocked
+      setStatus('failed')
     }
+  }
+
+  // On Chrome for iOS, web push is not supported — tell user upfront
+  if (isChromeIOS) {
+    return (
+      <Screen>
+        <ScreenNav onBack={onBack} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 32px', textAlign: 'center' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: 'rgba(109,40,217,.18)',
+            border: '1.5px solid rgba(167,139,250,.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 28
+          }}>
+            <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
+              <path d="M16 4C16 4 8 8 8 17V22H6V24H26V22H24V17C24 8 16 4 16 4Z" fill="rgba(109,40,217,.35)" stroke="rgba(167,139,250,.6)" strokeWidth="1" strokeLinejoin="round"/>
+              <rect x="13" y="25" width="6" height="3" rx="1.5" fill="rgba(167,139,250,.5)"/>
+              <circle cx="22" cy="7" r="4" fill="var(--accent)"/>
+              <line x1="22" y1="5" x2="22" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="22" cy="9.5" r=".8" fill="white"/>
+            </svg>
+          </div>
+          <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 12 }}>Use Safari for reminders</h1>
+          <p style={{ fontSize: 15, fontWeight: 300, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
+            Chrome on iPhone doesn't support notifications. To get reminders, open Kairos in Safari and add it to your home screen.
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            In Safari: tap the share icon → "Add to Home Screen" → then open Kairos from there.
+          </p>
+        </div>
+        <BtnArea>
+          <Btn onClick={onNext}>Continue anyway</Btn>
+        </BtnArea>
+      </Screen>
+    )
+  }
+
+  // On Safari iOS but not installed — prompt to add to home screen
+  if (isSafariIOS && !isStandalone) {
+    return (
+      <Screen>
+        <ScreenNav onBack={onBack} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 32px', textAlign: 'center' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: 'rgba(109,40,217,.18)',
+            border: '1.5px solid rgba(167,139,250,.35)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 28
+          }}>
+            <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
+              <path d="M16 4C16 4 8 8 8 17V22H6V24H26V22H24V17C24 8 16 4 16 4Z" fill="rgba(109,40,217,.35)" stroke="rgba(167,139,250,.6)" strokeWidth="1" strokeLinejoin="round"/>
+              <rect x="13" y="25" width="6" height="3" rx="1.5" fill="rgba(167,139,250,.5)"/>
+              <circle cx="22" cy="7" r="4" fill="var(--accent)"/>
+              <line x1="22" y1="5" x2="22" y2="9" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="22" cy="9.5" r=".8" fill="white"/>
+            </svg>
+          </div>
+          <h1 style={{ fontSize: 22, fontWeight: 500, color: 'var(--text-primary)', marginBottom: 12 }}>Add Kairos to your home screen</h1>
+          <p style={{ fontSize: 15, fontWeight: 300, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
+            iPhone requires apps to be installed before they can send notifications.
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            Tap the share icon <strong style={{ color: 'var(--text-secondary)' }}>↑</strong> at the bottom of Safari → "Add to Home Screen" → then reopen Kairos from there.
+          </p>
+        </div>
+        <BtnArea>
+          <Btn onClick={onNext}>I'll do it later</Btn>
+        </BtnArea>
+      </Screen>
+    )
   }
 
   return (
@@ -347,7 +426,7 @@ function NotificationsScreen({ onNext, onBack }) {
         )}
         {status === 'failed' && (
           <div style={{ marginTop: 20, width: '100%' }}>
-            <StatusMsg type="error">Something went wrong. Make sure you're using Chrome and try again.</StatusMsg>
+            <StatusMsg type="error">Something went wrong. Try again.</StatusMsg>
           </div>
         )}
       </div>
