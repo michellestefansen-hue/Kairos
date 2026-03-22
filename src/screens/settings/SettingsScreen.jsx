@@ -105,9 +105,6 @@ export default function SettingsScreen() {
         const id = window.OneSignal.User?.PushSubscription?.id
         const permission = window.OneSignal.Notifications?.permission
         setDebugInfo(`id: ${id || 'null'} | permission: ${permission}`)
-        // Sync store with live browser permission (e.g. user revoked in Chrome settings)
-        if (!permission && store.notificationsGranted) store.setNotificationsGranted(false)
-        if (permission && !store.notificationsGranted) store.setNotificationsGranted(true)
       } catch (e) {
         setDebugInfo(`error: ${e.message}`)
       }

@@ -168,6 +168,10 @@ export default function App() {
         notifyButton: { enable: false },
         allowLocalhostAsSecureOrigin: true
       })
+      // Sync stored permission with real browser state on every app load
+      const granted = OneSignal.Notifications.permission
+      const { notificationsGranted, setNotificationsGranted } = useKairosStore.getState()
+      if (granted !== notificationsGranted) setNotificationsGranted(granted)
     })
   }, [])
 
