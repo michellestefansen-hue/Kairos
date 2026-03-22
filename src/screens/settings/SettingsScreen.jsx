@@ -98,6 +98,9 @@ export default function SettingsScreen() {
         const id = window.OneSignal.User?.PushSubscription?.id
         const permission = window.OneSignal.Notifications?.permission
         setDebugInfo(`id: ${id || 'null'} | permission: ${permission}`)
+        // Sync store with live browser permission (e.g. user revoked in Chrome settings)
+        if (!permission && store.notificationsGranted) store.setNotificationsGranted(false)
+        if (permission && !store.notificationsGranted) store.setNotificationsGranted(true)
       } catch (e) {
         setDebugInfo(`error: ${e.message}`)
       }
@@ -285,7 +288,7 @@ export default function SettingsScreen() {
         <div style={{ padding: '8px 24px 16px' }}>
           <Toggle
             on={store.smartTiming}
-            onToggle={() => store.setSmartTiming(!store.smartTiming)}
+            onToggle={() => { store.setSmartTiming(!store.smartTiming); store.setLastScheduledDate(null) }}
             label="Smart timing"
             sub="evenly distributes reminders across waking hours"
           />
@@ -313,7 +316,7 @@ export default function SettingsScreen() {
             </button>
             {notifStatus === 'denied' && (
               <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
-                Go to iOS Settings → Kairos → Notifications to enable.
+                Tap the lock icon (or ⓘ) in Chrome's address bar → Site settings → Notifications → Allow, then try again.
               </p>
             )}
           </div>

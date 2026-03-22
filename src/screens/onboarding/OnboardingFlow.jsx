@@ -334,7 +334,7 @@ function NotificationsScreen({ onNext, onBack }) {
               Notifications are currently disabled.{' '}
               <span
                 style={{ color: 'var(--text-accent)', cursor: 'pointer', textDecoration: 'underline' }}
-                onClick={() => alert('Go to Settings > Notifications > Kairos to enable reminders.')}
+                onClick={() => alert('In Chrome: tap the lock icon (or ⓘ) in the address bar → Site settings → Notifications → Allow.\n\nThen return to Kairos and tap Enable again.')}
               >Open instructions</span>
             </StatusMsg>
           </div>

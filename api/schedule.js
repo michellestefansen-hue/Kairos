@@ -27,7 +27,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           app_id: appId,
-          include_player_ids: [playerId],
+          include_subscription_ids: [playerId],
           contents: { en: 'How energized do you feel right now?' },
           headings: { en: 'Kairos moment' },
           send_after: sendAfter,

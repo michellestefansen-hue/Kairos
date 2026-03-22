@@ -22,12 +22,14 @@ function buildSchedule(frequency, smartTiming, quietStart, quietEnd, date = new 
       times.push(minuteOfDay)
     }
   } else {
-    // Fixed blocks: morning, midday, afternoon, evening
+    // Fixed blocks: morning, late morning, afternoon, late afternoon, early evening, evening
     const blocks = [
       [wakeMinutes, wakeMinutes + 180],
       [wakeMinutes + 180, wakeMinutes + 360],
       [wakeMinutes + 360, wakeMinutes + 540],
       [sleepMinutes - 240, sleepMinutes - 60],
+      [wakeMinutes + 540, wakeMinutes + 660],
+      [wakeMinutes + 660, sleepMinutes - 120],
     ]
     const selectedBlocks = blocks.slice(0, frequency)
     selectedBlocks.forEach(([start, end]) => {
@@ -102,11 +104,23 @@ export function useNotifications() {
     const daysSinceScheduled = lastScheduledDate
       ? (Date.now() - new Date(lastScheduledDate).getTime()) / (1000 * 60 * 60 * 24)
       : Infinity
-    if (daysSinceScheduled < 6) return
+    if (daysSinceScheduled < 7) return
 
     if (!window.OneSignal) return
 
-    const playerId = window.OneSignal.User?.PushSubscription?.id
+    // OneSignal assigns a player ID async after permission is granted — poll for it
+    const playerId = await new Promise((resolve) => {
+      let settled = false
+      const done = (id) => { if (!settled) { settled = true; resolve(id) } }
+      const interval = setInterval(() => {
+        const id = window.OneSignal?.User?.PushSubscription?.id
+        if (id) { clearInterval(interval); done(id) }
+      }, 500)
+      setTimeout(() => { clearInterval(interval); done(null) }, 15000)
+      // Check immediately in case it's already there
+      const id = window.OneSignal?.User?.PushSubscription?.id
+      if (id) { clearInterval(interval); done(id) }
+    })
     if (!playerId) return
 
     // Build schedule for today + next 6 days
