@@ -3,6 +3,12 @@ import useKairosStore from '../../store/useKairosStore'
 import { Chip, PipProgress, TextInput } from '../../components/ui'
 import { useNotifications } from '../../hooks/useNotifications'
 
+const ua = navigator.userAgent
+const isIOS = /iphone|ipad|ipod/i.test(ua)
+const isChromeIOS = isIOS && /CriOS/i.test(ua)
+const isSafariIOS = isIOS && !isChromeIOS && /safari/i.test(ua)
+const isStandalone = window.navigator.standalone === true
+
 const STOP = new Set(['i','me','my','myself','we','our','ours','you','your','yourself','he','him','his','she','her','hers','it','its','they','them','their','what','which','who','this','that','these','those','am','is','are','was','were','be','been','being','have','has','had','do','does','did','a','an','the','and','but','if','or','because','as','until','while','of','at','by','for','with','about','into','through','during','before','after','to','from','up','down','in','out','on','off','over','under','again','then','here','there','when','where','why','how','all','both','each','more','most','other','some','no','nor','not','only','own','same','so','than','too','very','can','will','just','should','now','want','make','also','stay','get','feel','know','able','always','never','still','even','every','many','much','things','something','life','day','year','time','people','person','way','truly','really','deeply'])
 const FALLBACK = ['Focus','Purpose','Balance','Growth','Presence','Depth','Clarity','Courage','Impact','Connection','Rest','Learning','Creativity','Health','Calm','Leadership','Discipline','Adventure','Meaning','Gratitude','Service']
 
@@ -371,10 +377,28 @@ export default function SettingsScreen() {
           </EditPanel>
         )}
         <div style={{ padding: '12px 24px' }}>
-          {store.notificationsGranted && notifStatus !== 'scheduling' ? (
-            <p style={{ fontSize: 13, color: 'var(--text-accent)', textAlign: 'center' }}>
-              {notifStatus === 'scheduled' ? 'Reminders scheduled.' : 'Reminders are active.'}
+          {isChromeIOS ? (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              Chrome on iPhone doesn't support notifications. Open Kairos in Safari and add it to your home screen to enable reminders.
             </p>
+          ) : isSafariIOS && !isStandalone ? (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+              To enable reminders on iPhone, add Kairos to your home screen first. In Safari, tap the share icon → "Add to Home Screen", then reopen from there.
+            </p>
+          ) : store.notificationsGranted && store.lastScheduledDate && notifStatus !== 'scheduling' ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <p style={{ fontSize: 13, color: 'var(--text-accent)' }}>
+                {notifStatus === 'scheduled' ? 'Reminders scheduled.' : 'Reminders active.'}
+              </p>
+              <button
+                onClick={async () => {
+                  setNotifStatus('scheduling')
+                  await scheduleToday(true)
+                  setNotifStatus('scheduled')
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-faint)', fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-ui)', padding: '4px 0' }}
+              >Reschedule</button>
+            </div>
           ) : (
             <button
               disabled={notifStatus === 'scheduling'}
@@ -397,7 +421,7 @@ export default function SettingsScreen() {
                 fontFamily: 'var(--font-ui)', opacity: notifStatus === 'scheduling' ? 0.5 : 1
               }}
             >
-              {notifStatus === 'scheduling' ? 'Enabling…' : 'Enable reminders'}
+              {notifStatus === 'scheduling' ? 'Scheduling…' : store.notificationsGranted ? 'Schedule reminders' : 'Enable reminders'}
             </button>
           )}
           {notifStatus === 'blocked' && (
@@ -407,7 +431,7 @@ export default function SettingsScreen() {
           )}
           {notifStatus === 'failed' && (
             <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
-              Something went wrong. Make sure you're using Chrome and try again.
+              Something went wrong. Try again.
             </p>
           )}
         </div>
