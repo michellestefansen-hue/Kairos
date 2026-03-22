@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import useKairosStore from '../../store/useKairosStore'
-import { Toggle, Chip, PipProgress, TextInput } from '../../components/ui'
+import { Chip, PipProgress, TextInput } from '../../components/ui'
 import { useNotifications } from '../../hooks/useNotifications'
 
 const STOP = new Set(['i','me','my','myself','we','our','ours','you','your','yourself','he','him','his','she','her','hers','it','its','they','them','their','what','which','who','this','that','these','those','am','is','are','was','were','be','been','being','have','has','had','do','does','did','a','an','the','and','but','if','or','because','as','until','while','of','at','by','for','with','about','into','through','during','before','after','to','from','up','down','in','out','on','off','over','under','again','then','here','there','when','where','why','how','all','both','each','more','most','other','some','no','nor','not','only','own','same','so','than','too','very','can','will','just','should','now','want','make','also','stay','get','feel','know','able','always','never','still','even','every','many','much','things','something','life','day','year','time','people','person','way','truly','really','deeply'])
@@ -341,14 +341,6 @@ export default function SettingsScreen() {
             <SaveRow onSave={saveFrequency} onCancel={cancel} />
           </EditPanel>
         )}
-        <div style={{ padding: '8px 24px 16px' }}>
-          <Toggle
-            on={store.smartTiming}
-            onToggle={() => { store.setSmartTiming(!store.smartTiming); store.setLastScheduledDate(null) }}
-            label="Smart timing"
-            sub="evenly distributes reminders across waking hours"
-          />
-        </div>
         <SettingRow
           label="Quiet hours"
           value={`${String(store.quietHoursStart).padStart(2,'0')}:00 – ${String(store.quietHoursEnd).padStart(2,'0')}:00`}
@@ -381,15 +373,20 @@ export default function SettingsScreen() {
             <SaveRow onSave={saveQuietHours} onCancel={cancel} />
           </EditPanel>
         )}
-        {!store.notificationsGranted && (
-          <div style={{ padding: '12px 24px' }}>
+        <div style={{ padding: '12px 24px' }}>
+          {store.notificationsGranted && notifStatus !== 'scheduling' ? (
+            <p style={{ fontSize: 13, color: 'var(--text-accent)', textAlign: 'center' }}>
+              {notifStatus === 'scheduled' ? 'Reminders scheduled.' : 'Reminders are active.'}
+            </p>
+          ) : (
             <button
+              disabled={notifStatus === 'scheduling'}
               onClick={async () => {
+                setNotifStatus('scheduling')
                 const result = await requestPermission()
                 if (result === 'granted') {
-                  store.setLastScheduledDate(null)
-                  await scheduleToday()
-                  setNotifStatus('granted')
+                  await scheduleToday(true)
+                  setNotifStatus('scheduled')
                 } else if ('Notification' in window && Notification.permission === 'denied') {
                   setNotifStatus('blocked')
                 } else {
@@ -400,23 +397,23 @@ export default function SettingsScreen() {
                 width: '100%', padding: '12px', borderRadius: 12,
                 background: 'rgba(109,40,217,.25)', border: '1.5px solid rgba(167,139,250,.4)',
                 color: 'var(--text-primary)', fontSize: 15, cursor: 'pointer',
-                fontFamily: 'var(--font-ui)'
+                fontFamily: 'var(--font-ui)', opacity: notifStatus === 'scheduling' ? 0.5 : 1
               }}
             >
-              {notifStatus === 'granted' ? 'Reminders enabled' : 'Enable reminders'}
+              {notifStatus === 'scheduling' ? 'Enabling…' : 'Enable reminders'}
             </button>
-            {notifStatus === 'blocked' && (
-              <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
-                Blocked. In Chrome: ⋮ → Settings → Site settings → Notifications → find this site → Allow.
-              </p>
-            )}
-            {notifStatus === 'failed' && (
-              <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
-                Something went wrong. Make sure you're using Chrome and try again.
-              </p>
-            )}
-          </div>
-        )}
+          )}
+          {notifStatus === 'blocked' && (
+            <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
+              Blocked. In Chrome: ⋮ → Settings → Site settings → Notifications → find this site → Allow.
+            </p>
+          )}
+          {notifStatus === 'failed' && (
+            <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
+              Something went wrong. Make sure you're using Chrome and try again.
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Data */}

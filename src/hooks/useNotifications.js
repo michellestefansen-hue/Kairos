@@ -98,13 +98,12 @@ export function useNotifications() {
     })
   }, [setNotificationsGranted])
 
-  const scheduleToday = useCallback(async () => {
+  const scheduleToday = useCallback(async (force = false) => {
     const today = new Date().toDateString()
-    // Reschedule if never done, or if the last batch was scheduled more than 6 days ago
     const daysSinceScheduled = lastScheduledDate
       ? (Date.now() - new Date(lastScheduledDate).getTime()) / (1000 * 60 * 60 * 24)
       : Infinity
-    if (daysSinceScheduled < 7) return
+    if (!force && daysSinceScheduled < 7) return
 
     if (!window.OneSignal) return
 
@@ -128,7 +127,7 @@ export function useNotifications() {
     for (let i = 0; i < 7; i++) {
       const date = new Date()
       date.setDate(date.getDate() + i)
-      schedule.push(...buildSchedule(frequency, smartTiming, quietHoursStart, quietHoursEnd, date))
+      schedule.push(...buildSchedule(frequency, true, quietHoursStart, quietHoursEnd, date))
     }
     if (!schedule.length) return
 
