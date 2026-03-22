@@ -95,30 +95,53 @@ function generateActivitySentence(moments, activityData) {
 }
 
 // ── SNAPSHOT CARD GENERATOR ──────────────────────────────────
-const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000
+const isSameDay = (ts1, ts2) => {
+  const d1 = new Date(ts1), d2 = new Date(ts2)
+  return d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+}
 
 function generateSnapshotCard(moments, keywords) {
   if (moments.length < 3) return null
 
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
-  const recentWithActivity = moments.filter(m => m.timestamp > sevenDaysAgo && m.activity?.trim())
+  const now = Date.now()
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000
+  const fourteenDaysAgo = now - 14 * 24 * 60 * 60 * 1000
+const recentWithActivity = moments.filter(m => m.timestamp > sevenDaysAgo && m.activity?.trim())
+  const candidates = []
 
-  // 1. Flow moment — highest energy in last 7 days with a known activity
+  // ── shared stats ──────────────────────────────────────────────
+  const actStats = {}
+  moments.forEach(m => {
+    const a = m.activity?.trim()
+    if (!a) return
+    if (!actStats[a]) actStats[a] = { sum: 0, count: 0, entries: [] }
+    actStats[a].sum += m.energy
+    actStats[a].count++
+    actStats[a].entries.push(m)
+  })
+  const ranked = Object.entries(actStats)
+    .map(([a, { sum, count, entries }]) => ({ activity: a, avg: sum / count, count, entries }))
+    .sort((a, b) => b.avg - a.avg)
+  const overallAvg = moments.length
+    ? Math.round((moments.reduce((s, m) => s + m.energy, 0) / moments.length) * 10) / 10
+    : 5
+
+  // ── 1. Flow moment ────────────────────────────────────────────
   if (recentWithActivity.length >= 1) {
     const peak = recentWithActivity.reduce((a, b) => a.energy > b.energy ? a : b)
     if (peak.energy >= 7) {
-      const tagStr = peak.tags?.length ? peak.tags.slice(0, 2).join(' · ') : null
-      return {
+      candidates.push({
         type: 'flow',
-        headline: 'Your flow moment',
+        headline: 'Flow moment',
         detail: peak.activity.trim(),
-        sub: tagStr || `Energy ${peak.energy}/10`,
-        generatedAt: Date.now()
-      }
+        sub: `Energy ${peak.energy}/10 this week. That's a state worth chasing again.`
+      })
     }
   }
 
-  // 2. Personal record — activity that hit all-time high energy this week (≥8)
+  // ── 2. Personal record ────────────────────────────────────────
   const allTimeMax = {}
   moments.forEach(m => {
     const a = m.activity?.trim()
@@ -134,16 +157,15 @@ function generateSnapshotCard(moments, keywords) {
     .filter(([a, e]) => e >= 8 && e >= allTimeMax[a])
     .sort((a, b) => b[1] - a[1])[0]
   if (record) {
-    return {
+    candidates.push({
       type: 'record',
-      headline: 'Personal record',
+      headline: 'Personal best',
       detail: record[0],
-      sub: `Hit ${record[1]}/10 this week — your best ever`,
-      generatedAt: Date.now()
-    }
+      sub: `${record[1]}/10 — your highest ever for this. Remember what made it that good.`
+    })
   }
 
-  // 3. Direction streak — consecutive days with direction-tagged moments
+  // ── 3. Direction streak ───────────────────────────────────────
   if (keywords.length > 0) {
     const dirMoments = moments.filter(m =>
       m.tags?.some(t => keywords.some(k => k.toLowerCase() === t.toLowerCase()))
@@ -157,60 +179,43 @@ function generateSnapshotCard(moments, keywords) {
         else streak = 1
       }
       if (maxStreak >= 2) {
-        return {
+        candidates.push({
           type: 'streak',
           headline: 'Direction streak',
-          detail: `${maxStreak} days in a row`,
-          sub: 'Moments aligned with your direction',
-          generatedAt: Date.now()
-        }
+          detail: `${maxStreak} days living your direction`,
+          sub: `Consistency like this is how values become identity.`
+        })
       }
     }
   }
 
-  // 4. Hidden gem — activity logged ≤2 times but avg energy ≥7
-  const actStats = {}
-  moments.forEach(m => {
-    const a = m.activity?.trim()
-    if (!a) return
-    if (!actStats[a]) actStats[a] = { sum: 0, count: 0 }
-    actStats[a].sum += m.energy
-    actStats[a].count++
-  })
-  const gem = Object.entries(actStats)
-    .map(([a, { sum, count }]) => ({ activity: a, avg: sum / count, count }))
-    .filter(s => s.count <= 2 && s.avg >= 7)
-    .sort((a, b) => b.avg - a.avg)[0]
+  // ── 4. Hidden gem ─────────────────────────────────────────────
+  const gem = ranked.find(s => s.count <= 2 && s.avg >= 7)
   if (gem) {
-    return {
+    candidates.push({
       type: 'gem',
       headline: 'Hidden gem',
       detail: gem.activity,
-      sub: `High energy, rarely logged — worth doing more`,
-      generatedAt: Date.now()
-    }
+      sub: `High energy but rarely logged. What's holding you back from doing this more?`
+    })
   }
 
-  // 5. Contrast — biggest energy gap between any two activities
-  const ranked = Object.entries(actStats)
-    .map(([a, { sum, count }]) => ({ activity: a, avg: Math.round((sum / count) * 10) / 10 }))
-    .sort((a, b) => b.avg - a.avg)
+  // ── 5. Contrast ───────────────────────────────────────────────
   if (ranked.length >= 2) {
     const top = ranked[0]
     const bottom = ranked[ranked.length - 1]
     const diff = Math.round((top.avg - bottom.avg) * 10) / 10
     if (diff >= 2) {
-      return {
+      candidates.push({
         type: 'contrast',
         headline: 'Energy contrast',
-        detail: `"${top.activity}" vs "${bottom.activity}"`,
-        sub: `${diff} point gap in energy`,
-        generatedAt: Date.now()
-      }
+        detail: `"${top.activity}" lifts you. "${bottom.activity}" drains you.`,
+        sub: `A ${diff}-point gap. That difference is data — use it.`
+      })
     }
   }
 
-  // 6. Pattern — time-of-day peak
+  // ── 6. Time-of-day pattern ────────────────────────────────────
   const byPeriod = { morning: [], afternoon: [], evening: [] }
   moments.forEach(m => {
     const h = new Date(m.timestamp).getHours()
@@ -224,25 +229,175 @@ function generateSnapshotCard(moments, keywords) {
     .sort((a, b) => b.avg - a.avg)
   if (periodAvgs.length >= 1) {
     const peak = periodAvgs[0]
-    return {
+    candidates.push({
       type: 'pattern',
-      headline: 'Energy pattern',
-      detail: `You peak in the ${peak.period}`,
-      sub: `Average ${peak.avg}/10 during ${peak.period} check-ins`,
-      generatedAt: Date.now()
+      headline: 'Your energy window',
+      detail: `You come alive in the ${peak.period}`,
+      sub: `${peak.avg}/10 average. Guard that time — it's yours.`
+    })
+  }
+
+  // ── 7. Anchor activity ────────────────────────────────────────
+  const anchor = ranked.find(s => s.count >= 4 && s.avg >= 6.5)
+  if (anchor) {
+    candidates.push({
+      type: 'anchor',
+      headline: 'Your anchor',
+      detail: anchor.activity,
+      sub: `${anchor.count} check-ins, averaging ${Math.round(anchor.avg * 10) / 10}/10. This one is a foundation — protect it.`
+    })
+  }
+
+  // ── 8. Momentum ───────────────────────────────────────────────
+  const thisWeek = moments.filter(m => m.timestamp > sevenDaysAgo).length
+  const lastWeek = moments.filter(m => m.timestamp > fourteenDaysAgo && m.timestamp <= sevenDaysAgo).length
+  if (lastWeek > 0 && thisWeek > lastWeek) {
+    candidates.push({
+      type: 'momentum',
+      headline: 'Building momentum',
+      detail: `${thisWeek} check-ins this week vs ${lastWeek} last week`,
+      sub: `You're showing up more. That's how change actually happens.`
+    })
+  }
+
+  // ── 9. Keyword energy vs overall ─────────────────────────────
+  if (keywords.length > 0) {
+    const kwMoments = moments.filter(m =>
+      m.tags?.some(t => keywords.some(k => k.toLowerCase() === t.toLowerCase()))
+    )
+    if (kwMoments.length >= 3) {
+      const kwAvg = Math.round((kwMoments.reduce((s, m) => s + m.energy, 0) / kwMoments.length) * 10) / 10
+      const diff = Math.round((kwAvg - overallAvg) * 10) / 10
+      const kw = keywords[0]
+      if (Math.abs(diff) >= 0.5) {
+        const higher = diff > 0
+        candidates.push({
+          type: 'keyword',
+          headline: 'Direction insight',
+          detail: higher
+            ? `"${kw}" moments run ${diff} points above your average`
+            : `"${kw}" moments run ${Math.abs(diff)} points below your average`,
+          sub: higher
+            ? `Your direction is genuinely energising you. That's not nothing.`
+            : `Low energy here isn't failure — it might mean you need a different approach.`
+        })
+      }
     }
   }
 
-  return null
+  // ── 10. Direction nudge ───────────────────────────────────────
+  if (keywords.length > 0) {
+    const lastDirMoment = moments
+      .filter(m => m.tags?.some(t => keywords.some(k => k.toLowerCase() === t.toLowerCase())))
+      .sort((a, b) => b.timestamp - a.timestamp)[0]
+    const daysSince = lastDirMoment
+      ? Math.floor((now - lastDirMoment.timestamp) / 86400000)
+      : null
+    if (daysSince !== null && daysSince >= 3) {
+      candidates.push({
+        type: 'nudge',
+        headline: 'Direction check-in',
+        detail: `${daysSince} days since a "${keywords[0]}" moment`,
+        sub: `No pressure — but what would a small step look like today?`
+      })
+    }
+  }
+
+  // ── 11. Recovery prompt ───────────────────────────────────────
+  const recentAvg = recentWithActivity.length
+    ? Math.round((recentWithActivity.reduce((s, m) => s + m.energy, 0) / recentWithActivity.length) * 10) / 10
+    : null
+  if (recentAvg !== null && recentAvg < overallAvg - 0.8 && ranked[0]) {
+    candidates.push({
+      type: 'recovery',
+      headline: 'Energy check',
+      detail: `It's been a lower-energy stretch`,
+      sub: `"${ranked[0].activity}" usually brings you up to ${Math.round(ranked[0].avg * 10) / 10}/10. Worth making space for it.`
+    })
+  }
+
+  // ── 12. Consistency win ───────────────────────────────────────
+  const recentActCount = {}
+  recentWithActivity.forEach(m => {
+    const a = m.activity.trim()
+    recentActCount[a] = (recentActCount[a] || 0) + 1
+  })
+  const consistent = Object.entries(recentActCount).sort((a, b) => b[1] - a[1])[0]
+  if (consistent && consistent[1] >= 3) {
+    candidates.push({
+      type: 'consistent',
+      headline: 'Showing up',
+      detail: `"${consistent[0]}" — ${consistent[1]} times this week`,
+      sub: `Repetition is underrated. You're building something.`
+    })
+  }
+
+  // ── 13. Energy trend (rising) ─────────────────────────────────
+  const trendCandidates = ranked.filter(s => s.count >= 4)
+  for (const s of trendCandidates) {
+    const sorted = [...s.entries].sort((a, b) => a.timestamp - b.timestamp)
+    const half = Math.floor(sorted.length / 2)
+    const firstHalf = sorted.slice(0, half)
+    const secondHalf = sorted.slice(half)
+    const avgFirst = firstHalf.reduce((a, m) => a + m.energy, 0) / firstHalf.length
+    const avgSecond = secondHalf.reduce((a, m) => a + m.energy, 0) / secondHalf.length
+    if (avgSecond - avgFirst >= 1) {
+      candidates.push({
+        type: 'trend',
+        headline: 'Rising energy',
+        detail: `Your energy in "${s.activity}" keeps climbing`,
+        sub: `From ${Math.round(avgFirst * 10) / 10} to ${Math.round(avgSecond * 10) / 10}/10. Something is working.`
+      })
+      break
+    }
+  }
+
+  // ── 14. Quiet appreciation ────────────────────────────────────
+  const appreciated = ranked.find(s => s.count >= 5 && s.avg >= 6)
+  if (appreciated) {
+    candidates.push({
+      type: 'appreciation',
+      headline: 'Worth appreciating',
+      detail: appreciated.activity,
+      sub: `You've logged this ${appreciated.count} times. It keeps showing up because it matters to you.`
+    })
+  }
+
+  // ── 15. Variety ───────────────────────────────────────────────
+  const uniqueActivities = Object.keys(actStats).length
+  if (uniqueActivities >= 6) {
+    candidates.push({
+      type: 'variety',
+      headline: 'Rich life',
+      detail: `${uniqueActivities} different activities logged`,
+      sub: `Variety in what energises you is a strength, not a distraction.`
+    })
+  }
+
+  // ── Pick by day so it rotates daily ───────────────────────────
+  if (candidates.length === 0) return null
+  const today = new Date()
+  const daySeed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()
+  const pick = candidates[daySeed % candidates.length]
+  return { ...pick, generatedAt: now }
 }
 
 const CARD_STYLES = {
-  flow:     { symbol: '⚡', color: '#A78BFA', bg: 'rgba(139,92,246,.12)', border: 'rgba(139,92,246,.35)' },
-  record:   { symbol: '◈',  color: '#FCD34D', bg: 'rgba(251,191,36,.08)', border: 'rgba(251,191,36,.3)' },
-  streak:   { symbol: '◉',  color: '#FB923C', bg: 'rgba(251,146,60,.08)', border: 'rgba(251,146,60,.3)' },
-  gem:      { symbol: '◆',  color: '#34D399', bg: 'rgba(52,211,153,.08)', border: 'rgba(52,211,153,.3)' },
-  contrast: { symbol: '⬡',  color: '#A78BFA', bg: 'rgba(109,40,217,.1)',  border: 'rgba(167,139,250,.3)' },
-  pattern:  { symbol: '◐',  color: '#60A5FA', bg: 'rgba(96,165,250,.08)', border: 'rgba(96,165,250,.3)' }
+  flow:         { symbol: '⚡', color: '#A78BFA', bg: 'rgba(139,92,246,.12)',  border: 'rgba(139,92,246,.35)' },
+  record:       { symbol: '◈',  color: '#FCD34D', bg: 'rgba(251,191,36,.08)',  border: 'rgba(251,191,36,.3)'  },
+  streak:       { symbol: '◉',  color: '#FB923C', bg: 'rgba(251,146,60,.08)',  border: 'rgba(251,146,60,.3)'  },
+  gem:          { symbol: '◆',  color: '#34D399', bg: 'rgba(52,211,153,.08)',  border: 'rgba(52,211,153,.3)'  },
+  contrast:     { symbol: '⬡',  color: '#A78BFA', bg: 'rgba(109,40,217,.1)',   border: 'rgba(167,139,250,.3)' },
+  pattern:      { symbol: '◐',  color: '#60A5FA', bg: 'rgba(96,165,250,.08)',  border: 'rgba(96,165,250,.3)'  },
+  anchor:       { symbol: '⬤',  color: '#F472B6', bg: 'rgba(244,114,182,.08)', border: 'rgba(244,114,182,.3)' },
+  momentum:     { symbol: '▲',  color: '#4ADE80', bg: 'rgba(74,222,128,.08)',  border: 'rgba(74,222,128,.3)'  },
+  keyword:      { symbol: '◎',  color: '#FB923C', bg: 'rgba(251,146,60,.08)',  border: 'rgba(251,146,60,.3)'  },
+  nudge:        { symbol: '→',  color: '#60A5FA', bg: 'rgba(96,165,250,.08)',  border: 'rgba(96,165,250,.3)'  },
+  recovery:     { symbol: '◑',  color: '#C084FC', bg: 'rgba(192,132,252,.08)', border: 'rgba(192,132,252,.3)' },
+  consistent:   { symbol: '▣',  color: '#34D399', bg: 'rgba(52,211,153,.08)',  border: 'rgba(52,211,153,.3)'  },
+  trend:        { symbol: '↑',  color: '#FCD34D', bg: 'rgba(251,191,36,.08)',  border: 'rgba(251,191,36,.3)'  },
+  appreciation: { symbol: '◇',  color: '#F9A8D4', bg: 'rgba(249,168,212,.08)', border: 'rgba(249,168,212,.3)' },
+  variety:      { symbol: '⬟',  color: '#A78BFA', bg: 'rgba(139,92,246,.1)',   border: 'rgba(139,92,246,.3)'  },
 }
 
 function SnapshotCard({ card }) {
@@ -304,7 +459,7 @@ export default function InsightsScreen() {
   // Generate/refresh snapshot card every 2 days
   useEffect(() => {
     if (!hasData) return
-    const isStale = !snapshotCard || (Date.now() - snapshotCard.generatedAt) > TWO_DAYS_MS
+    const isStale = !snapshotCard || !isSameDay(snapshotCard.generatedAt, Date.now())
     if (isStale) {
       const card = generateSnapshotCard(moments, keywords)
       if (card) setSnapshotCard(card)
