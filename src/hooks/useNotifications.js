@@ -68,7 +68,11 @@ export function useNotifications() {
 
   const requestPermission = useCallback(() => {
     return new Promise((resolve) => {
+      // Safety net: if OneSignal never calls back (e.g. init stalled), don't hang forever
+      const timeout = setTimeout(() => resolve('unsupported'), 10000)
+
       const attempt = async (OneSignal) => {
+        clearTimeout(timeout)
         try {
           await OneSignal.Notifications.requestPermission()
           const granted = OneSignal.Notifications.permission
@@ -79,11 +83,14 @@ export function useNotifications() {
         }
       }
 
-      if (window.OneSignal) {
-        attempt(window.OneSignal)
-      } else if (window.OneSignalDeferred) {
+      // Always go through OneSignalDeferred so we're guaranteed to run after init() completes.
+      // (init() is also queued there in App.jsx — direct window.OneSignal access races with it.)
+      if (window.OneSignalDeferred) {
         window.OneSignalDeferred.push(attempt)
+      } else if (window.OneSignal) {
+        attempt(window.OneSignal)
       } else {
+        clearTimeout(timeout)
         resolve('unsupported')
       }
     })
