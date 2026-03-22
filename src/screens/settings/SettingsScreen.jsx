@@ -82,7 +82,7 @@ export default function SettingsScreen() {
   const [debugInfo, setDebugInfo] = useState('checking...')
   const { requestPermission, scheduleToday } = useNotifications()
   const [notifStatus, setNotifStatus] = useState(null)
-  const [editingSection, setEditingSection] = useState(null) // null | 'direction' | 'keywords'
+  const [editingSection, setEditingSection] = useState(null) // null | 'direction' | 'keywords' | 'frequency' | 'quietHours'
 
   // Direction edit state
   const [draftDirection, setDraftDirection] = useState('')
@@ -90,6 +90,13 @@ export default function SettingsScreen() {
   // Keywords edit state
   const [draftSelected, setDraftSelected] = useState(new Set())
   const [customKeywordInput, setCustomKeywordInput] = useState('')
+
+  // Frequency edit state
+  const [draftFrequency, setDraftFrequency] = useState(store.frequency)
+
+  // Quiet hours edit state
+  const [draftQuietStart, setDraftQuietStart] = useState(store.quietHoursStart)
+  const [draftQuietEnd, setDraftQuietEnd] = useState(store.quietHoursEnd)
 
   useEffect(() => {
     async function check() {
@@ -134,6 +141,29 @@ export default function SettingsScreen() {
 
   const saveKeywords = () => {
     store.setKeywords([...draftSelected])
+    setEditingSection(null)
+  }
+
+  const openFrequency = () => {
+    setDraftFrequency(store.frequency)
+    setEditingSection('frequency')
+  }
+
+  const saveFrequency = () => {
+    store.setFrequency(draftFrequency)
+    store.setLastScheduledDate(null)
+    setEditingSection(null)
+  }
+
+  const openQuietHours = () => {
+    setDraftQuietStart(store.quietHoursStart)
+    setDraftQuietEnd(store.quietHoursEnd)
+    setEditingSection('quietHours')
+  }
+
+  const saveQuietHours = () => {
+    store.setQuietHours(draftQuietStart, draftQuietEnd)
+    store.setLastScheduledDate(null)
     setEditingSection(null)
   }
 
@@ -284,7 +314,33 @@ export default function SettingsScreen() {
         Reminders
       </div>
       <div style={{ background: 'rgba(255,255,255,.02)', marginBottom: 8 }}>
-        <SettingRow label="Frequency" value={`${store.frequency}× per day`} onPress={() => {}} />
+        <SettingRow
+          label="Frequency"
+          value={`${store.frequency}× per day`}
+          onPress={editingSection === 'frequency' ? null : openFrequency}
+        />
+        {editingSection === 'frequency' && (
+          <EditPanel>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 16 }}>
+              {[3, 4, 5, 6].map(n => (
+                <button
+                  key={n}
+                  onClick={() => setDraftFrequency(n)}
+                  style={{
+                    width: 56, height: 56, borderRadius: '50%',
+                    border: `1.5px solid ${draftFrequency === n ? 'var(--accent-mid)' : 'rgba(167,139,250,.35)'}`,
+                    background: draftFrequency === n ? '#5B21B6' : 'rgba(109,40,217,.08)',
+                    color: draftFrequency === n ? '#fff' : 'var(--accent-pale)',
+                    fontFamily: 'var(--font-ui)', fontSize: 18,
+                    cursor: 'pointer',
+                    WebkitAppearance: 'none', appearance: 'none'
+                  }}
+                >{n}</button>
+              ))}
+            </div>
+            <SaveRow onSave={saveFrequency} onCancel={cancel} />
+          </EditPanel>
+        )}
         <div style={{ padding: '8px 24px 16px' }}>
           <Toggle
             on={store.smartTiming}
@@ -293,7 +349,38 @@ export default function SettingsScreen() {
             sub="evenly distributes reminders across waking hours"
           />
         </div>
-        <SettingRow label="Quiet hours" value={`${store.quietHoursStart}:00 – ${String(store.quietHoursEnd).padStart(2,'0')}:00`} onPress={() => {}} />
+        <SettingRow
+          label="Quiet hours"
+          value={`${String(store.quietHoursStart).padStart(2,'0')}:00 – ${String(store.quietHoursEnd).padStart(2,'0')}:00`}
+          onPress={editingSection === 'quietHours' ? null : openQuietHours}
+        />
+        {editingSection === 'quietHours' && (
+          <EditPanel>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 14 }}>No notifications will be sent during these hours.</p>
+            {[
+              { label: 'Sleep from', value: draftQuietStart, set: setDraftQuietStart, min: 18, max: 23 },
+              { label: 'Wake at', value: draftQuietEnd, set: setDraftQuietEnd, min: 4, max: 11 },
+            ].map(({ label, value, set, min, max }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span style={{ fontSize: 14, color: 'var(--text-secondary)' }}>{label}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <button
+                    onClick={() => set(v => Math.max(min, v - 1))}
+                    style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(167,139,250,.35)', background: 'rgba(109,40,217,.08)', color: 'var(--accent-pale)', fontFamily: 'var(--font-ui)', fontSize: 18, cursor: 'pointer', WebkitAppearance: 'none', appearance: 'none' }}
+                  >−</button>
+                  <span style={{ fontSize: 16, color: 'var(--text-primary)', minWidth: 40, textAlign: 'center' }}>
+                    {String(value).padStart(2,'0')}:00
+                  </span>
+                  <button
+                    onClick={() => set(v => Math.min(max, v + 1))}
+                    style={{ width: 32, height: 32, borderRadius: '50%', border: '1.5px solid rgba(167,139,250,.35)', background: 'rgba(109,40,217,.08)', color: 'var(--accent-pale)', fontFamily: 'var(--font-ui)', fontSize: 18, cursor: 'pointer', WebkitAppearance: 'none', appearance: 'none' }}
+                  >+</button>
+                </div>
+              </div>
+            ))}
+            <SaveRow onSave={saveQuietHours} onCancel={cancel} />
+          </EditPanel>
+        )}
         {!store.notificationsGranted && (
           <div style={{ padding: '12px 24px' }}>
             <button
