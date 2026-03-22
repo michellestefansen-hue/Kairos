@@ -23,7 +23,10 @@ const useKairosStore = create(
       setNotificationsGranted: (v) => set({ notificationsGranted: v }),
       setLastScheduledDate: (d) => set({ lastScheduledDate: d }),
       setLastWeeklyPromptDate: (d) => set({ lastWeeklyPromptDate: d }),
-      completeOnboarding: () => set({ onboardingComplete: true }),
+      completeOnboarding: () => set({
+        onboardingComplete: true,
+        lastWeeklyPromptDate: new Date().toISOString().slice(0, 10),
+      }),
 
       // ── MOMENTS ────────────────────────────────────────────
       moments: [],
