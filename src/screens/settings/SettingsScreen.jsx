@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import useKairosStore from '../../store/useKairosStore'
 import { Toggle, Chip, PipProgress, TextInput } from '../../components/ui'
 import { useNotifications } from '../../hooks/useNotifications'
@@ -299,10 +299,14 @@ export default function SettingsScreen() {
             <button
               onClick={async () => {
                 const result = await requestPermission()
-                setNotifStatus(result)
                 if (result === 'granted') {
                   store.setLastScheduledDate(null)
                   await scheduleToday()
+                  setNotifStatus('granted')
+                } else if ('Notification' in window && Notification.permission === 'denied') {
+                  setNotifStatus('blocked')
+                } else {
+                  setNotifStatus('failed')
                 }
               }}
               style={{
@@ -314,9 +318,14 @@ export default function SettingsScreen() {
             >
               {notifStatus === 'granted' ? 'Reminders enabled' : 'Enable reminders'}
             </button>
-            {notifStatus === 'denied' && (
+            {notifStatus === 'blocked' && (
               <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
-                Tap the lock icon (or ⓘ) in Chrome's address bar → Site settings → Notifications → Allow, then try again.
+                Blocked. In Chrome: ⋮ → Settings → Site settings → Notifications → find this site → Allow.
+              </p>
+            )}
+            {notifStatus === 'failed' && (
+              <p style={{ fontSize: 12, color: 'var(--error)', marginTop: 8, textAlign: 'center' }}>
+                Something went wrong. Make sure you're using Chrome and try again.
               </p>
             )}
           </div>

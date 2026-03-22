@@ -3,7 +3,7 @@ import useKairosStore from '../../store/useKairosStore'
 import { useNotifications } from '../../hooks/useNotifications'
 import {
   Screen, ScreenNav, BtnArea, Btn, KairosLogo,
-  DotProgress, Chip, Toggle, TextInput,
+  DotProgress, Chip, Toggle,
   PipProgress, StatusMsg
 } from '../../components/ui'
 
@@ -288,13 +288,19 @@ function FrequencyScreen({ onNext, onBack }) {
 
 // ── NOTIFICATIONS ────────────────────────────────────────────
 function NotificationsScreen({ onNext, onBack }) {
-  const [status, setStatus] = useState(null) // null | 'loading' | 'granted' | 'denied' | 'unsupported'
+  const [status, setStatus] = useState(null) // null | 'loading' | 'granted' | 'blocked' | 'failed'
   const { requestPermission } = useNotifications()
 
   const handleEnable = async () => {
     setStatus('loading')
     const result = await requestPermission()
-    setStatus(result === 'granted' ? 'granted' : result === 'unsupported' ? 'unsupported' : 'denied')
+    if (result === 'granted') {
+      setStatus('granted')
+    } else if ('Notification' in window && Notification.permission === 'denied') {
+      setStatus('blocked') // user explicitly denied — needs manual unblock
+    } else {
+      setStatus('failed') // something went wrong but not explicitly blocked
+    }
   }
 
   return (
@@ -328,15 +334,20 @@ function NotificationsScreen({ onNext, onBack }) {
             <StatusMsg type="success">Reminders enabled.</StatusMsg>
           </div>
         )}
-        {(status === 'denied' || status === 'unsupported') && (
+        {status === 'blocked' && (
           <div style={{ marginTop: 20, width: '100%' }}>
             <StatusMsg type="error">
-              Notifications are currently disabled.{' '}
+              Notifications are blocked.{' '}
               <span
                 style={{ color: 'var(--text-accent)', cursor: 'pointer', textDecoration: 'underline' }}
-                onClick={() => alert('In Chrome: tap the lock icon (or ⓘ) in the address bar → Site settings → Notifications → Allow.\n\nThen return to Kairos and tap Enable again.')}
-              >Open instructions</span>
+                onClick={() => alert('To unblock in Chrome on Android:\n\n1. Open Chrome\n2. Tap the three-dot menu (⋮) → Settings\n3. Site settings → Notifications\n4. Find this site and tap Allow\n\nThen come back and tap Try again.')}
+              >How to fix</span>
             </StatusMsg>
+          </div>
+        )}
+        {status === 'failed' && (
+          <div style={{ marginTop: 20, width: '100%' }}>
+            <StatusMsg type="error">Something went wrong. Make sure you're using Chrome and try again.</StatusMsg>
           </div>
         )}
       </div>
@@ -344,7 +355,8 @@ function NotificationsScreen({ onNext, onBack }) {
       <BtnArea>
         {(status === null || status === 'loading') && <Btn onClick={handleEnable} disabled={status === 'loading'}>{status === 'loading' ? 'Enabling...' : 'Enable notifications'}</Btn>}
         {status === 'granted' && <Btn onClick={onNext}>Continue to Kairos</Btn>}
-        {(status === 'denied' || status === 'unsupported') && <Btn onClick={onNext}>Continue anyway</Btn>}
+        {(status === 'blocked' || status === 'failed') && <Btn onClick={handleEnable}>Try again</Btn>}
+        {(status === 'blocked' || status === 'failed') && <Btn ghost onClick={onNext}>Continue anyway</Btn>}
         {status === null && <Btn ghost onClick={onNext}>Maybe later</Btn>}
       </BtnArea>
     </Screen>
